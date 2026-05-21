@@ -1,77 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
     <title>Linux Patch Dashboard</title>
 
     <link rel="stylesheet"
-	  href="{{ url_for('static', filename='style.css') }}">
+          href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
+
     <h1>Linux Patch & Compliance Dashboard</h1>
 
     <div class="card">
 
-    	<h2>System Information</h2>
+        <h2>System Information</h2>
 
-    	<ul>	
-        	<li><strong>Hostname:</strong> {{ system_info.hostname }}</li>
-        	<li><strong>OS:</strong> {{ system_info.os_info }}</li>
-        	<li><strong>Kernel:</strong> {{ system_info.kernel }}</li>
-        	<li><strong>Uptime:</strong> {{ system_info.uptime }}</li>
-    	</ul>
+        <ul>
+            <li>
+                <strong>Hostname:</strong>
+                {{ system_info.hostname }}
+            </li>
 
-    </div>
+            <li>
+                <strong>OS:</strong>
+                {{ system_info.os_info }}
+            </li>
 
-    <div class="card">
+            <li>
+                <strong>Kernel:</strong>
+                {{ system_info.kernel }}
+            </li>
 
-    	<h2>Patch Status</h2>
-
-   	 <p>
-    		<strong>Pending Updates:</strong>
-    		{{ system_info.updates.count }}
-    	</p>
-
-    	{% if system_info.updates.count > 0 %}
-		<p class="status-warning">
-			Updates Available
-		</p>
-
-		<ul>	
-        		{% for package in system_info.updates.packages %}
-            			<li>{{ package }}</li>
-        		{% endfor %}
-    		</ul>
-    	{% else %}
-		<p class="Status-Ok">
-		System Fully Updated
-		</p>
-    	{% endif %}
+            <li>
+                <strong>Uptime:</strong>
+                {{ system_info.uptime }}
+            </li>
+        </ul>
 
     </div>
 
     <div class="card">
 
-	    <h2>Managed Servers</h2>
+        <h2>Patch Status</h2>
 
-	    <table border="1" cellpadding="10">
-		    <tr>
-			    <th>Hostname</th>
-			    <th>IP Address</th>
-			    <th>Operating System</th>
-		    </tr>
+        <p>
+            <strong>Pending Updates:</strong>
+            {{ system_info.updates.count }}
+        </p>
 
-		    {% for server in servers %}
-		    <tr>
-			    <td>{{ server.hostname }}</td>
-			    <td>{{ server.ip }}</td>
-			    <td>{{ server.os }}</td>
-		    </tr>
-        	    {% endfor %}
+        {% if system_info.updates.count > 0 %}
 
-	     </table>
+            <p class="status-warning">
+                Updates Available
+            </p>
+
+            <ul>
+                {% for package in system_info.updates.packages %}
+
+                    <li>{{ package }}</li>
+
+                {% endfor %}
+            </ul>
+
+        {% else %}
+
+            <p class="status-ok">
+                System Fully Updated
+            </p>
+
+        {% endif %}
+
+    </div>
+
+    <div class="card">
+
+        <h2>Managed Nodes</h2>
+
+        <table border="1" cellpadding="10">
+
+            <tr>
+                <th>Hostname</th>
+                <th>IP</th>
+                <th>OS</th>
+                <th>Uptime</th>
+                <th>Pending Updates</th>
+                <th>Status</th>
+		<th>Last Check</th>
+            </tr>
+
+            {% for server in remote_servers %}
+
+            <tr>
+
+                <td>{{ server.hostname }}</td>
+
+                <td>{{ server.ip }}</td>
+
+                <td>{{ server.os }}</td>
+
+                <td>{{ server.uptime }}</td>
+
+                <td>{{ server.updates }}</td>
+
+                <td>
+
+                    {% if server.status == "Online" %}
+
+                        <span class="status-ok">
+                            {{ server.status }}
+                        </span>
+
+                    {% else %}
+
+                        <span class="status-warning">
+                            {{ server.status }}
+                        </span>
+
+                    {% endif %}
+
+                </td>
+		<td>{{ server.last_check }}</td>
+
+            </tr>
+
+            {% endfor %}
+
+        </table>
+
     </div>
 
 </body>
+
 </html>
