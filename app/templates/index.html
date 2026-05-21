@@ -4,37 +4,52 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Linux Patch Dashboard</title>
+
+    <link rel="stylesheet"
+	  href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <h1>Linux Patch & Compliance Dashboard</h1>
 
-    <h2>System Information</h2>
+    <div class="card">
 
-    <ul>
-        <li><strong>Hostname:</strong> {{ system_info.hostname }}</li>
-        <li><strong>OS:</strong> {{ system_info.os_info }}</li>
-        <li><strong>Kernel:</strong> {{ system_info.kernel }}</li>
-        <li><strong>Uptime:</strong> {{ system_info.uptime }}</li>
-    </ul>
+    	<h2>System Information</h2>
 
-    <h2>Patch Status</h2>
-
-    <p>
-    	<strong>Pending Updates:</strong>
-    	{{ system_info.updates.count }}
-    </p>
-
-    {% if system_info.updates.count > 0 %}
-    	<p><strong>Status:</strong> Updates Available</p>
-
-	<ul>
-        	{% for package in system_info.updates.packages %}
-            		<li>{{ package }}</li>
-        	{% endfor %}
+    	<ul>	
+        	<li><strong>Hostname:</strong> {{ system_info.hostname }}</li>
+        	<li><strong>OS:</strong> {{ system_info.os_info }}</li>
+        	<li><strong>Kernel:</strong> {{ system_info.kernel }}</li>
+        	<li><strong>Uptime:</strong> {{ system_info.uptime }}</li>
     	</ul>
-    {% else %}
-    <p><strong>Status:</strong> System Fully Updated</p>
-    {% endif %}
+
+    </div>
+
+    <div class="card">
+
+    	<h2>Patch Status</h2>
+
+   	 <p>
+    		<strong>Pending Updates:</strong>
+    		{{ system_info.updates.count }}
+    	</p>
+
+    	{% if system_info.updates.count > 0 %}
+		<p class="status-warning">
+			Updates Available
+		</p>
+
+		<ul>	
+        		{% for package in system_info.updates.packages %}
+            			<li>{{ package }}</li>
+        		{% endfor %}
+    		</ul>
+    	{% else %}
+		<p class="Status-Ok">
+		System Fully Updated
+		</p>
+    	{% endif %}
+
+    </div>
 
 </body>
 </html>
