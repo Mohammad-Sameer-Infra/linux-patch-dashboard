@@ -51,5 +51,27 @@
 
     </div>
 
+    <div class="card">
+
+	    <h2>Managed Servers</h2>
+
+	    <table border="1" cellpadding="10">
+		    <tr>
+			    <th>Hostname</th>
+			    <th>IP Address</th>
+			    <th>Operating System</th>
+		    </tr>
+
+		    {% for server in servers %}
+		    <tr>
+			    <td>{{ server.hostname }}</td>
+			    <td>{{ server.ip }}</td>
+			    <td>{{ server.os }}</td>
+		    </tr>
+        	    {% endfor %}
+
+	     </table>
+    </div>
+
 </body>
 </html>

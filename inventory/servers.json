@@ -1,0 +1,17 @@
+[
+    {
+        "hostname": "dcs01pldev001",
+        "ip": "192.168.110.128",
+        "os": "Ubuntu 24.04"
+    },
+    {
+        "hostname": "dcs01plapp001",
+        "ip": "192.168.110.129",
+        "os": "Ubuntu 24.04"
+    },
+    {
+        "hostname": "dcs01pldb001",
+        "ip": "192.168.110.130",
+        "os": "Ubuntu 24.04"
+    }
+]	
