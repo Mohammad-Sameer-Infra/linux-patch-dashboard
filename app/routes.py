@@ -4,7 +4,7 @@ from app import app
 from app.system_info import get_system_info
 from app.inventory import load_servers
 from app.remote_info import get_remote_system_info
-
+from app.database import insert_telemetry
 
 @app.route("/")
 def home():
@@ -20,6 +20,8 @@ def home():
         remote_data = get_remote_system_info(server)
 
         remote_servers.append(remote_data)
+
+        insert_telemetry(remote_data)
 
     return render_template(
         "index.html",
