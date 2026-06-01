@@ -119,6 +119,9 @@ table {
 table th {
     background-color: #1f2937;
     color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
     padding: 12px;
     text-align: left;
 }
@@ -191,4 +194,165 @@ ul {
     font-weight: bold;
 
     font-size: 16px;
+}
+
+.search-box {
+
+    width: 100%;
+
+    padding: 12px;
+
+    margin-bottom: 20px;
+
+    border: 1px solid #d1d5db;
+
+    border-radius: 8px;
+
+    font-size: 16px;
+
+    box-sizing: border-box;
+}
+
+.highlight-text {
+
+    background-color: #fef08a;
+
+    font-weight: bold;
+
+    padding: 2px 4px;
+
+    border-radius: 4px;
+}
+
+.metric-good {
+
+    background-color: #f8fafc !important;
+
+    border-left: 5px solid #10b981;
+}
+
+.metric-warning {
+
+    background-color: #fffbeb !important;
+
+    border-left: 5px solid #f59e0b;
+}
+
+.metric-critical {
+
+    background-color: #fef2f2 !important;
+
+    border-left: 5px solid #ef4444;
+}
+
+.section-title {
+
+    margin-bottom: 15px;
+
+    margin-top: 10px;
+
+    font-size: 22px;
+
+    font-weight: 700;
+
+    color: #111827;
+}
+
+table tr:nth-child(even) {
+
+    background-color: #f9fafb;
+}
+
+.badge-good {
+
+    background-color: #ecfdf5;
+
+    color: #065f46;
+
+    padding: 4px 10px;
+
+    border-radius: 999px;
+
+    font-weight: 600;
+}
+
+.badge-warning {
+
+    background-color: #fffbeb;
+
+    color: #92400e;
+
+    padding: 4px 10px;
+
+    border-radius: 999px;
+
+    font-weight: 600;
+}
+
+.badge-critical {
+
+    background-color: #fef2f2;
+
+    color: #991b1b;
+
+    padding: 4px 10px;
+
+    border-radius: 999px;
+
+    font-weight: 600;
+}
+
+.table-toolbar {
+
+    margin-bottom: 20px;
+}
+
+.search-box {
+
+    width: 100%;
+
+    padding: 14px 16px;
+
+    border: 1px solid #d1d5db;
+
+    border-radius: 10px;
+
+    font-size: 15px;
+
+    background-color: #ffffff;
+
+    box-sizing: border-box;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.search-box:focus {
+
+    outline: none;
+
+    border-color: #2563eb;
+
+    box-shadow:
+        0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.token-box {
+
+    margin-top: 20px;
+
+    padding: 20px;
+
+    background-color: #111827;
+
+    color: #f9fafb;
+
+    border-radius: 10px;
+
+    font-family: monospace;
+
+    font-size: 18px;
+
+    word-break: break-all;
 }

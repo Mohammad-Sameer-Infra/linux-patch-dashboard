@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>{{ title }}</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+    <div class="navbar">
+
+        <div class="nav-title">
+            {{ title }}
+        </div>
+
+        <div class="nav-links">
+
+            <a href="/">Dashboard</a>
+
+            <a href="/history">History</a>
+
+        </div>
+
+    </div>
+
+    <div class="container">
+
+        <div class="card">
+
+            <h2>{{ hostname }}</h2>
+
+	    <input type="text"
+       		   id="packageSearch"
+       		   placeholder="Search packages..."
+       		   class="search-box">
+
+            {% if packages %}
+
+                <table>
+
+                    <tr>
+                        <th>Package</th>
+                    </tr>
+
+                    {% for package in packages %}
+
+                    <tr class="package-row">
+
+                        <td>{{ package }}</td>
+
+                    </tr>
+
+                    {% endfor %}
+
+		    <tr id="noResultsRow"
+    			style="display: none;">
+
+    			<td>
+        			No matching packages found.
+    			</td>
+
+		   </tr>
+
+                </table>
+
+            {% else %}
+
+                <div class="healthy-message">
+
+                    ✓ No packages found.
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</body>
+
+<script>
+
+const searchBox =
+    document.getElementById("packageSearch");
+
+searchBox.addEventListener("keyup", function() {
+
+    const filter =
+        searchBox.value.toLowerCase();
+
+    const rows =
+        document.querySelectorAll(".package-row");
+
+    let visibleRows = 0;
+
+    rows.forEach(function(row) {
+
+        const cell = row.querySelector("td");
+
+        const originalText =
+            cell.textContent;
+
+        const lowerText =
+            originalText.toLowerCase();
+
+        if (lowerText.includes(filter)) {
+
+            row.style.display = "";
+
+            visibleRows++;
+
+            if (filter !== "") {
+
+                const regex =
+                    new RegExp(`(${filter})`, "gi");
+
+                cell.innerHTML =
+                    originalText.replace(
+                        regex,
+                        '<span class="highlight-text">$1</span>'
+                    );
+
+            } else {
+
+                cell.textContent = originalText;
+            }
+
+        } else {
+
+            row.style.display = "none";
+        }
+    });
+
+    const noResultsRow =
+        document.getElementById("noResultsRow");
+
+    if (visibleRows === 0) {
+
+        noResultsRow.style.display = "";
+
+    } else {
+
+        noResultsRow.style.display = "none";
+    }
+
+});
+
+</script>
+
+</html>

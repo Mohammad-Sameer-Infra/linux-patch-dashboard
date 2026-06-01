@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Network Discovery</title>
+
+    <meta http-equiv="refresh" content="30">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+    <div class="navbar">
+
+        <div class="nav-title">
+            Network Discovery
+        </div>
+
+        <div class="nav-links">
+
+            <a href="/">Dashboard</a>
+
+            <a href="/history">History</a>
+
+            <a href="/discovery">Discovery</a>
+
+        </div>
+
+    </div>
+
+    <div class="container">
+
+        <h2 class="section-title">
+
+            Discovered Hosts
+
+        </h2>
+
+        <div class="card">
+
+            {% if discovered_hosts %}
+
+                <table>
+
+                    <tr>
+
+                        <th>IP Address</th>
+
+                        <th>Status</th>
+
+                    </tr>
+
+                    {% for ip in discovered_hosts %}
+
+                    <tr class="node-row">
+
+                        <td>{{ ip }}</td>
+
+                        <td>
+
+                            <span class="status-online">
+
+                                Reachable
+
+                            </span>
+
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </table>
+
+            {% else %}
+
+                <div class="healthy-message">
+
+                    No hosts discovered.
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>

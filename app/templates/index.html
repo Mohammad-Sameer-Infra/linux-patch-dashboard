@@ -43,6 +43,9 @@
 
 
     <div class="container">
+	<h2 class="section-title">
+ 		Infrastructure Overview
+	</h2>
 
         <div class="metrics">
 
@@ -53,7 +56,7 @@
 	
 	    <a href="/online" class="metric-link">
 
-            	<div class="metric-card">
+            	<div class="metric-card metric-good">
                 	<h3>Online Nodes</h3>
                 	<p>{{ online_nodes }}</p>
             	</div>
@@ -62,7 +65,7 @@
 
 	   <a href="/offline" class="metric-link">
 
-            	<div class="metric-card">
+            	<div class="metric-card metric-critical">
                 	<h3>Offline Nodes</h3>
                		<p>{{ offline_nodes }}</p>
             	</div>
@@ -126,7 +129,20 @@
 
         <div class="card">
 
-            <h2>Managed Nodes</h2>
+            <h2 class="section-title">
+
+	    	Managed Nodes
+	    
+	    </h2>
+	    
+	    <div class="table-toolbar">
+
+    		<input type="text"
+           	       id="nodeSearch"
+                       placeholder="Search by hostname, IP, OS or status"
+                       class="search-box">
+
+	   </div>
 
             <table>
 
@@ -142,8 +158,8 @@
 
                 {% for server in remote_servers %}
 
-                <tr>
-
+                <tr class="node-row searchable-row"
+			onclick="window.location.href='/node/{{ server.hostname }}'">
                     <td>
    	 		<a href="/node/{{ server.hostname }}"
        			   class="node-link">
@@ -159,7 +175,37 @@
 
                     <td>{{ server.uptime }}</td>
 
-                    <td>{{ server.updates }}</td>
+                    <td>
+
+    			{% if server.updates is number 
+				and server.updates == 0 %}
+
+        		     	<span class="badge-good">
+
+            				{{ server.updates }}
+
+        		     	</span>
+
+    			{% elif server.updates is number 
+				and server.updates <= 5 %}
+
+        		     	<span class="badge-warning">
+
+            				{{ server.updates }}
+
+       	 			</span>
+
+    			{% else %}
+
+        			<span class="badge-critical">
+
+            				{{ server.updates }}
+
+        			</span>
+
+    			{% endif %}
+
+		    </td>
 
                     <td>
 
@@ -190,7 +236,37 @@
         </div>
 
     </div>
+<script>
 
+const nodeSearch =
+    document.getElementById("nodeSearch");
+
+nodeSearch.addEventListener("keyup", function() {
+
+    const filter =
+        nodeSearch.value.toLowerCase();
+
+    const rows =
+        document.querySelectorAll(".searchable-row");
+
+    rows.forEach(function(row) {
+
+        const text =
+            row.innerText.toLowerCase();
+
+        if (text.includes(filter)) {
+
+            row.style.display = "";
+
+        } else {
+
+            row.style.display = "none";
+        }
+    });
+
+});
+
+</script>
 </body>
 
 </html>

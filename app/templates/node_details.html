@@ -10,6 +10,8 @@
 
     <title>Node Details</title>
 
+    <meta http-equiv="refresh" content="30">
+
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
 
@@ -126,46 +128,129 @@
 
 		</tr>
 
-                </tr>
 
             </table>
 
         </div>
-
+	
 	<div class="card">
 
-    		<h2>Patch Details</h2>
+    		<h2>Patch Summary</h2>
 
-    		{% if server.updates == 0 %}
+    		<div class="metrics">
 
-        		<div class="healthy-message">
+        		<a href="/node/{{ server.hostname }}/all-updates"
+           		   class="metric-link">
 
-            			✓ No pending updates detected.
-            			System is fully patched.
+			<div class="metric-card
 
-        		</div>
+			{% if server.updates == 0 %}
 
-    		{% else %}
+    				metric-good
 
-        		<table>
+			{% elif server.updates <= 5 %}
 
-            			<tr>
-                			<th>Pending Package Updates</th>
-            			</tr>
+    				metric-warning
 
-            			{% for package in server.update_packages %}
+			{% else %}
 
-           			 <tr>
+    				metric-critical
 
-               				 <td>{{ package }}</td>
+			{% endif %}
+			">
 
-           			 </tr>
+    				<h3>Total Updates</h3>
 
-            			{% endfor %}
+	    			<p>{{ server.updates }}</p>
 
-        		</table>
+		</div>
+        		</a>
 
-    		{% endif %}
+			<a href="/node/{{ server.hostname }}/kernel-updates"
+   			   class="metric-link">
+
+        			<div class="metric-card
+					
+				{% if server.kernel_updates == 0 %}
+
+    					metric-good
+
+				{% elif server.kernel_updates <= 5 %}
+
+    					metric-warning
+
+				{% else %}
+
+    					metric-critical
+
+				{% endif %}
+			">
+
+                			<h3>Kernel Updates</h3>
+
+                			<p>{{ server.kernel_updates }}</p>
+
+        			</div>
+
+			</a>
+
+        		<a href="/node/{{ server.hostname }}/security-updates"
+           		   class="metric-link">
+
+            			<div class="metric-card
+		
+				{% if server.security_updates == 0 %}
+		
+    					metric-good
+
+				{% elif server.security_updates <= 5 %}
+	
+    					metric-warning
+
+				{% else %}	
+
+    					metric-critical
+
+				{% endif %}
+				">
+
+                			<h3>Security Packages</h3>
+
+                			<p>{{ server.security_updates }}</p>
+
+            			</div>
+
+        		</a>
+
+        		<a href="/node/{{ server.hostname }}/critical-packages"
+           		class="metric-link">
+
+            			<div class="metric-card
+				
+				{% if server.critical_packages == 0 %}
+
+    					metric-good
+
+				{% elif server.critical_packages <= 5 %}
+
+    					metric-warning
+
+				{% else %}
+
+    					metric-critical
+
+				{% endif %}
+				">
+
+                			<h3>Critical Packages</h3>
+
+                			<p>{{ server.critical_packages }}</p>
+
+            			</div>
+
+        		</a>
+
+    		</div>
 
 	</div>
 
