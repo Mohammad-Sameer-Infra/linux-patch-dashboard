@@ -1,10 +1,16 @@
 [
     {
+        "node_id": "13badcbd-d112-432d-8270-0ea6d4d85d6d",
         "hostname": "dcs01plnode001",
-        "ip": "192.168.110.130"
+        "ip": "192.168.110.130",
+        "state": "active",
+        "registered_at": "2026-06-01 08:00:00"
     },
     {
+        "node_id": "1e74347d-1bd0-4b9c-ae82-f7aa81ecd925",
         "hostname": "dcs01plnode002",
-        "ip": "192.168.110.131"
+        "ip": "192.168.110.131",
+        "state": "active",
+        "registered_at": "2026-06-01 08:00:00"
     }
 ]
