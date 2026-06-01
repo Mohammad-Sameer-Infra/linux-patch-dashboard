@@ -1,7 +1,9 @@
-from app.inventory import load_servers
+from app.inventory import (
+    load_servers,
+    update_last_seen
+)
 from app.remote_info import get_remote_system_info
 from app.database import insert_telemetry
-
 
 def main():
 
@@ -13,8 +15,16 @@ def main():
 
         insert_telemetry(remote_data)
 
-        print(f"Collected telemetry from {server['hostname']}")
+        if remote_data["status"] == "Online":
 
+            update_last_seen(
+                server["hostname"]
+            )
+
+        print(
+            f"Collected telemetry from "
+            f"{server['hostname']}"
+        )
 
 if __name__ == "__main__":
     main()
