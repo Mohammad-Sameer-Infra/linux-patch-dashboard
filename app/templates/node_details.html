@@ -62,6 +62,44 @@
                     <td>{{ server.ip }}</td>
                 </tr>
 
+		<tr>
+    			<td>Node ID</td>
+    			<td>{{ server.node_id }}</td>
+		</tr>
+
+		<tr>
+    			<td>State</td>
+
+    			<td>
+
+        			{% if server.state == "active" %}
+
+            				<span class="status-online">
+                				{{ server.state }}
+            				</span>
+
+        			{% else %}
+
+            				<span class="status-offline">
+                				{{ server.state }}
+            				</span>
+
+        			{% endif %}
+
+    			</td>
+
+		</tr>
+
+		<tr>
+    			<td>Registered At</td>
+    			<td>{{ server.registered_at }}</td>
+		</tr>
+
+		<tr>
+    			<td>Last Seen</td>
+    			<td>{{ server.last_seen }}</td>
+		</tr>
+
                 <tr>
                     <td>Operating System</td>
                     <td>{{ server.os }}</td>

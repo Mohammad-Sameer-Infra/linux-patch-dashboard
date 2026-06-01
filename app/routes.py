@@ -121,11 +121,22 @@ def node_details(hostname):
 
         if remote_data["hostname"] == hostname:
 
+            remote_data["node_id"] = server["node_id"]
+
+            remote_data["state"] = server["state"]
+
+            remote_data["registered_at"] = (
+                server["registered_at"]
+            )
+
+            remote_data["last_seen"] = (
+                server.get("last_seen")
+            )
+
             return render_template(
                 "node_details.html",
                 server=remote_data
             )
-
     return "Node Not Found", 404
 
 @app.route("/node/<hostname>/all-updates")
