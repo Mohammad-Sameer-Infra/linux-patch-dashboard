@@ -1,9 +1,9 @@
 #!/bin/bash
 
-DASHBOARD_URL="http://192.168.110.128:5000"
-
 echo "Linux Patch Dashboard Registration"
 echo
+
+read -p "Enter dashboard URL: " DASHBOARD_URL
 
 read -p "Enter registration token: " TOKEN
 
