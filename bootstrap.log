@@ -1,0 +1,76 @@
+
+=====================================
+ Linux Patch Dashboard Bootstrap
+=====================================
+
+[1/5] Python Validation
+
+[0;34m  [RUNNING][0m Checking Python installation
+[0;32m  [SUCCESS][0m Python 3.12.3 detected
+
+[2/5] Runtime Directories
+
+[0;34m  [RUNNING][0m Checking inventory/
+[0;32m  [SUCCESS][0m inventory/ ready
+[0;34m  [RUNNING][0m Checking security/
+[0;32m  [SUCCESS][0m security/ ready
+[0;34m  [RUNNING][0m Checking config/
+[0;32m  [SUCCESS][0m config/ ready
+
+[3/5] Inventory Configuration
+
+[0;34m  [RUNNING][0m Validating inventory template
+[0;32m  [SUCCESS][0m Template found
+[0;34m  [RUNNING][0m Preparing inventory/servers.json
+[0;32m  [SUCCESS][0m inventory/servers.json already exists
+
+[4/5] Registration Tokens
+
+[0;34m  [RUNNING][0m Validating token template
+[0;32m  [SUCCESS][0m Template found
+[0;34m  [RUNNING][0m Preparing registration token file
+[0;32m  [SUCCESS][0m security/registration_tokens.json already exists
+
+[5/5] Application Settings
+
+[0;34m  [RUNNING][0m Validating settings template
+[0;32m  [SUCCESS][0m Template found
+[0;34m  [RUNNING][0m Preparing settings file
+[0;32m  [SUCCESS][0m config/settings.json already exists
+
+=====================================
+ Bootstrap Completed Successfully
+=====================================
+
+System Status
+-------------
+[0;32m  [SUCCESS][0m Python Runtime Ready
+[0;32m  [SUCCESS][0m Runtime Directories Ready
+[0;32m  [SUCCESS][0m Inventory Configuration Ready
+[0;32m  [SUCCESS][0m Registration Tokens Ready
+[0;32m  [SUCCESS][0m Application Settings Ready
+
+Required Files
+--------------
+[0;32m  [SUCCESS][0m inventory/servers.json
+[0;32m  [SUCCESS][0m security/registration_tokens.json
+[0;32m  [SUCCESS][0m config/settings.json
+
+Next Steps
+----------
+1. Review and update config/settings.json
+
+2. Create a Python virtual environment
+      python3 -m venv venv
+
+3. Activate the virtual environment
+      source venv/bin/activate
+
+4. Install dependencies
+      pip install -r requirements.txt
+
+5. Start the dashboard
+      python app.py
+
+Linux Patch Dashboard is ready.
+
