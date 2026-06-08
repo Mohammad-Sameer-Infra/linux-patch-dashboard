@@ -9,3 +9,6 @@ def get_config():
     with open(CONFIG_FILE) as f:
 
         return json.load(f)
+
+
+SETTINGS = get_config()

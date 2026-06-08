@@ -1,22 +1,12 @@
-import subprocess
+#import subprocess
 from datetime import datetime
+from app.package_manager import (
+    get_available_updates
+)
 
-
-def run_remote_command(ip, command):
-
-    ssh_command = (
-        f"ssh -o StrictHostKeyChecking=no "
-        f"-o ConnectTimeout=5 "
-        f"vmadmin@{ip} '{command}'"
-    )
-
-    output = subprocess.check_output(
-        ssh_command,
-        shell=True
-    ).decode().strip()
-
-    return output
-
+from app.ssh_utils import (
+    run_remote_command
+)
 
 def get_remote_system_info(server):
 
@@ -39,9 +29,8 @@ def get_remote_system_info(server):
             "uptime -p"
         )
 
-        updates_list = run_remote_command(
-            ip,
-            "apt list --upgradable 2>/dev/null | tail -n +2"
+        updates_list = get_available_updates(
+            server
         )
 
         update_packages = (
