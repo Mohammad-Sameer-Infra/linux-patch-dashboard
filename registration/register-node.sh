@@ -11,6 +11,15 @@ HOSTNAME=$(hostname)
 
 IP=$(hostname -I | awk '{print $1}')
 
+SSH_USER=$(whoami)
+
+SSH_PORT=22
+
+echo "Detected hostname : $HOSTNAME"
+echo "Detected IP       : $IP"
+echo "Detected SSH User : $SSH_USER"
+echo
+
 echo
 echo "Installing dashboard SSH trust..."
 echo
@@ -30,10 +39,12 @@ echo
 curl -X POST "$DASHBOARD_URL/api/register" \
      -H "Content-Type: application/json" \
      -d "{
-           \"hostname\": \"$HOSTNAME\",
-           \"ip\": \"$IP\",
-           \"token\": \"$TOKEN\"
-         }"
+      	 \"hostname\": \"$HOSTNAME\",
+         \"ip\": \"$IP\",
+      	 \"ssh_user\": \"$SSH_USER\",
+      	 \"ssh_port\": $SSH_PORT,
+      	 \"token\": \"$TOKEN\"
+    	}"
 
 echo
 echo

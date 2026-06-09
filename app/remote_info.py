@@ -15,17 +15,17 @@ def get_remote_system_info(server):
     try:
 
         hostname = run_remote_command(
-            ip,
+            server,
             "hostname"
         )
-
+        
         os_info = run_remote_command(
-            ip,
+            server,
             "grep PRETTY_NAME /etc/os-release | cut -d= -f2"
         ).replace('"', '')
-
+       
         uptime = run_remote_command(
-            ip,
+            server,
             "uptime -p"
         )
 

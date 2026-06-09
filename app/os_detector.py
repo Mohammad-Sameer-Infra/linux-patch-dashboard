@@ -1,9 +1,10 @@
 from app.ssh_utils import run_remote_command
 
-def get_os_family(ip):
+
+def get_os_family(server):
 
     os_release = run_remote_command(
-        ip,
+        server,
         "cat /etc/os-release"
     ).lower()
 

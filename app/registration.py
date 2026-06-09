@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import datetime
+
 from app.config import get_config
 
 from app.token_manager import (
@@ -12,6 +13,7 @@ from app.token_manager import (
 CONFIG = get_config()
 
 INVENTORY_FILE = CONFIG["inventory_file"]
+
 
 def register_node(data):
 
@@ -31,6 +33,16 @@ def register_node(data):
     hostname = data["hostname"]
 
     ip = data["ip"]
+
+    ssh_user = data.get(
+        "ssh_user",
+        CONFIG["default_ssh_user"]
+    )
+
+    ssh_port = data.get(
+        "ssh_port",
+        22
+    )
 
     for server in servers:
 
@@ -52,9 +64,11 @@ def register_node(data):
         "node_id": str(uuid.uuid4()),
         "hostname": hostname,
         "ip": ip,
+        "ssh_user": ssh_user,
+        "ssh_port": ssh_port,
         "state": "active",
         "registered_at": datetime.now().strftime(
-        "%Y-%m-%d %H:%M:%S"
+            "%Y-%m-%d %H:%M:%S"
         )
     }
 
@@ -62,7 +76,11 @@ def register_node(data):
 
     with open(INVENTORY_FILE, "w") as f:
 
-        json.dump(servers, f, indent=4)
+        json.dump(
+            servers,
+            f,
+            indent=4
+        )
 
     mark_token_used(token)
 
