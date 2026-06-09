@@ -17,11 +17,18 @@ def get_available_updates(server):
 
     if os_family == "redhat":
 
-        updates = run_remote_command(
-            server,
-            "dnf check-update 2>/dev/null || true"
-        )
+    updates = run_remote_command(
+        server,
+        """
+        if command -v dnf >/dev/null 2>&1
+        then
+            dnf check-update 2>/dev/null || true
+        else
+            yum check-update 2>/dev/null || true
+        fi
+        """
+    )
 
-        return updates
+    return updates
 
     return ""
