@@ -1,5 +1,6 @@
-#import subprocess
+import subprocess
 from datetime import datetime
+
 from app.package_manager import (
     get_available_updates
 )
@@ -7,6 +8,15 @@ from app.package_manager import (
 from app.ssh_utils import (
     run_remote_command
 )
+
+from app.os_detector import (
+    get_os_family
+)
+
+from app.update_classifier import (
+    classify_updates
+)
+
 
 def get_remote_system_info(server):
 
@@ -18,12 +28,12 @@ def get_remote_system_info(server):
             server,
             "hostname"
         )
-        
+
         os_info = run_remote_command(
             server,
             "grep PRETTY_NAME /etc/os-release | cut -d= -f2"
         ).replace('"', '')
-       
+
         uptime = run_remote_command(
             server,
             "uptime -p"
@@ -34,39 +44,32 @@ def get_remote_system_info(server):
         )
 
         update_packages = (
-                updates_list.splitlines()
-                if updates_list else []
+            updates_list.splitlines()
+            if updates_list else []
         )
 
         updates = len(update_packages)
 
-        kernel_updates = len([
-            p for p in update_packages
-            if "linux-image" in p
-            or "linux-headers" in p
-        ])
+        os_family = get_os_family(
+            server
+        )
 
-        security_updates = len([
-            p for p in update_packages
-            if any(keyword in p.lower() for keyword in [
-                "openssl",
-                "sudo",
-                "systemd",
-                "curl",
-                "bash",
-                "ssh"
-        ])
-    ])
+        classification = classify_updates(
+            os_family,
+            update_packages
+        )
 
-        critical_packages = len([
-            p for p in update_packages
-            if any(keyword in p.lower() for keyword in [
-                "linux",
-                "openssl",
-                "systemd",
-                "sudo"
-        ])
-    ])
+        kernel_updates = (
+            classification["kernel_updates"]
+        )
+
+        security_updates = (
+            classification["security_updates"]
+        )
+
+        critical_packages = (
+            classification["critical_packages"]
+        )
 
         return {
             "hostname": hostname,
@@ -79,7 +82,9 @@ def get_remote_system_info(server):
             "critical_packages": critical_packages,
             "update_packages": update_packages,
             "status": "Online",
-            "last_check": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "last_check": datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         }
 
     except Exception:
@@ -95,5 +100,7 @@ def get_remote_system_info(server):
             "critical_packages": 0,
             "update_packages": [],
             "status": "Offline",
-            "last_check": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            "last_check": datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         }
