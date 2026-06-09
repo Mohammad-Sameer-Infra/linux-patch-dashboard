@@ -25,9 +25,21 @@ def run_remote_command(server, command):
         f"'{command}'"
     )
 
-    output = subprocess.check_output(
-        ssh_command,
-        shell=True
-    ).decode().strip()
+    try:
 
-    return output
+        output = subprocess.check_output(
+            ssh_command,
+            shell=True,
+            timeout=30
+        ).decode().strip()
+
+        return output
+
+    except subprocess.TimeoutExpired:
+
+        print(
+            f"Command timed out on "
+            f"{server['hostname']}"
+        )
+
+        return ""
