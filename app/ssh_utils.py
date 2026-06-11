@@ -39,7 +39,9 @@ def run_remote_command(server, command):
 
         print(
             f"Command timed out on "
-            f"{server['hostname']}"
+            f"{server.get('hostname', ip)}"
+        
         )
 
         return ""
+
