@@ -118,7 +118,6 @@ def node_details(hostname):
     for server in servers:
 
         remote_data = get_remote_system_info(server)
-
         if remote_data["hostname"] == hostname:
 
             remote_data["node_id"] = server["node_id"]
@@ -133,10 +132,18 @@ def node_details(hostname):
                 server.get("last_seen")
             )
 
+            if remote_data["status"] == "Offline":
+
+                return render_template(
+                    "offline.html",
+                    servers=[remote_data]
+                )
+
             return render_template(
                 "node_details.html",
                 server=remote_data
             )
+
     return "Node Not Found", 404
 
 @app.route("/node/<hostname>/all-updates")

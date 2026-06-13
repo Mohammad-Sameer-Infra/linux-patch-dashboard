@@ -94,7 +94,7 @@ def get_remote_system_info(server):
             "ip": ip,
             "os": "Unknown",
             "uptime": "Unknown",
-            "updates": "Unknown",
+            "updates": "0",
             "kernel_updates": 0,
             "security_updates": 0,
             "critical_packages": 0,
