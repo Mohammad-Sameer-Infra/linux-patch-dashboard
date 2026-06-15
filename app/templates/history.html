@@ -49,7 +49,10 @@
                     <th>IP</th>
                     <th>OS</th>
                     <th>Uptime</th>
-                    <th>Updates</th>
+                    <th>Total Updates</th>
+		    <th>Kernel</th>
+		    <th>Security</th>
+		    <th>Critical</th>
                     <th>Status</th>
                     <th>Last Check</th>
                 </tr>
@@ -67,6 +70,12 @@
                     <td>{{ row.uptime }}</td>
 
                     <td>{{ row.updates }}</td>
+
+		    <td>{{ row.kernel_updates }}</td>
+
+		    <td>{{ row.security_updates }}</td>
+
+		    <td>{{ row.critical_packages }}</td>
 
                     <td>
 			    {% if row.status == "Online" %}

@@ -20,6 +20,9 @@ def init_db():
             os TEXT,
             uptime TEXT,
             updates INTEGER,
+            kernel_updates INTEGER,
+            security_updates INTEGER,
+            critical_packages INTEGER,
             status TEXT,
             last_check TEXT
         )
@@ -42,16 +45,22 @@ def insert_telemetry(data):
             os,
             uptime,
             updates,
+            kernel_updates,
+            security_updates,
+            critical_packages,
             status,
             last_check
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         data["hostname"],
         data["ip"],
         data["os"],
         data["uptime"],
         data["updates"],
+        data["kernel_updates"],
+        data["security_updates"],
+        data["critical_packages"],
         data["status"],
         data["last_check"]
     ))
@@ -74,6 +83,9 @@ def get_telemetry_history():
             os,
             uptime,
             updates,
+            kernel_updates,
+            security_updates,
+            critical_packages,
             status,
             last_check
         FROM telemetry
