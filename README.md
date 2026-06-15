@@ -76,15 +76,14 @@ http://<dashboard-server-ip>:5000
 
 ---
 
-# Minimum Requirements
+## Minimum Requirements
 
-## Dashboard Server
+### Dashboard Server
 
 | Component        | Minimum Requirement                    |
 | ---------------- | -------------------------------------- |
 | Operating System | Ubuntu 22.04+, Rocky Linux 8+, RHEL 8+ |
 | Python           | **Python 3.11 or newer**               |
-| pip              | Automatically upgraded by bootstrap    |
 | Git              | Installed                              |
 | OpenSSH Client   | Installed                              |
 | SQLite3          | Installed                              |
@@ -93,11 +92,11 @@ http://<dashboard-server-ip>:5000
 >
 > The dashboard server requires **Python 3.11 or newer**. Older Python versions (for example Python 3.6 included with Rocky Linux 8) are not supported because modern project dependencies no longer support end-of-life Python releases.
 >
-> The supplied `bootstrap.sh` script validates the Python version before installation begins.
+> The provided `bootstrap.sh` script automatically detects and uses `python3.11` if it is available on the system. There is **no need to modify the system default `python3` symlink**.
 >
-> **Managed nodes do not require Python 3.11.**
+> **Managed nodes do not require Python 3.11.** Only the dashboard server must meet these requirements.
 
-## Managed Nodes
+### Managed Nodes
 
 * SSH server running.
 * Reachable from the dashboard server.
@@ -105,13 +104,13 @@ http://<dashboard-server-ip>:5000
 * SSH user with permission to execute:
 
   * `apt list --upgradable` (Ubuntu/Debian)
-  * `dnf check-update` or `yum check-update` (Rocky/RHEL)
+  * `dnf check-update` or `yum check-update` (Rocky/RHEL).
 
 ---
 
 # Dashboard Server Installation
 
-## Step 1: Clone Repository
+## Step 1: Clone the Repository
 
 ```bash
 git clone https://github.com/Mohammad-Sameer-Infra/linux-patch-dashboard.git
@@ -127,19 +126,22 @@ chmod +x bootstrap.sh
 ./bootstrap.sh
 ```
 
-The bootstrap script automatically validates:
+The bootstrap script automatically:
 
-* Python version.
-* Runtime directories.
-* Configuration files.
-* Inventory files.
-* Registration token files.
-* Virtual environment.
-* Dashboard service status.
+* Detects a supported Python interpreter (`python3.11` preferred).
+* Validates that Python 3.11+ is available.
+* Verifies required project files.
+* Creates and validates runtime directories.
+* Validates inventory and registration token files.
+* Validates dashboard configuration.
+* Verifies the Python virtual environment.
+* Checks dashboard service installation and status.
+
+If Python 3.11 is not installed, the bootstrap script will stop and display guidance for installing a supported version.
 
 ## Step 3: Generate Dashboard SSH Key (First Time Only)
 
-If no SSH key exists:
+If an SSH key does not already exist:
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
@@ -167,7 +169,9 @@ Example:
 
 Adjust values for your environment.
 
-## Step 5: Test the Dashboard
+## Step 5: Start the Dashboard
+
+For testing:
 
 ```bash
 source venv/bin/activate

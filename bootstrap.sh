@@ -48,25 +48,31 @@ step "[1/7] Python Validation"
 
 echo "Checking python installation..."
 
-if ! command -v python3 >/dev/null 2>&1
+if command -v python3.11 >/dev/null 2>&1
 then
 
-    print_fail "python3 is not installed"
+    PYTHON_CMD=python3.11
 
-    echo
-    echo "Please install Python 3.11 or newer."
+elif command -v python3 >/dev/null 2>&1
+then
+
+    PYTHON_CMD=python3
+
+else
+
+    print_fail "Python is not installed."
+
     exit 1
 
 fi
 
-PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
+PYTHON_VERSION=$(${PYTHON_CMD} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
 
+echo "Using interpreter: ${PYTHON_CMD}"
 echo "Detected Python version: ${PYTHON_VERSION}"
 
-if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)'
+if ! ${PYTHON_CMD} -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)'
 then
-
-    echo
 
     print_fail "Unsupported Python version"
 
@@ -74,30 +80,12 @@ then
     echo "Required : Python 3.11 or newer"
     echo "Detected : ${PYTHON_VERSION}"
     echo
-    echo "The dashboard server requires Python 3.11+."
-    echo "Managed nodes do NOT require Python 3.11."
-    echo
-    echo "Ubuntu:"
-    echo "  sudo apt update"
-    echo "  sudo apt install -y python3.11 python3.11-venv python3-pip"
-    echo
-    echo "Rocky / RHEL:"
-    echo "  sudo dnf install -y python3.11 python3.11-pip"
-    echo
-    echo "After installing Python 3.11:"
-    echo "  rm -rf venv"
-    echo "  python3.11 -m venv venv"
-    echo "  source venv/bin/activate"
-    echo "  python -m pip install --upgrade pip setuptools wheel"
-    echo
-
+    echo "Please install Python 3.11."
     exit 1
 
 fi
 
 print_pass "Python ${PYTHON_VERSION}"
-
-echo
 
 echo "Checking pip installation..."
 
