@@ -1,141 +1,81 @@
 # Linux Patch & Compliance Dashboard
 
-Production-style Linux Patch Management and Infrastructure Compliance Platform.
+A lightweight web-based dashboard for collecting and viewing Linux patch information across multiple servers without logging into each machine individually.
 
-## Overview
-
-Linux Patch & Compliance Dashboard provides centralized visibility into Linux server patch status, compliance posture, inventory, and node lifecycle management.
-
-The platform is designed for infrastructure engineers, system administrators, DevOps teams, and platform operations teams who need a lightweight solution for monitoring Linux patch compliance across multiple servers.
+The dashboard connects to managed nodes over SSH, detects the operating system, gathers available package updates, classifies important updates, and presents the information in a simple web interface.
 
 ---
 
-## Current Features
+# Features
 
-### Node Management
+* Centralized Linux patch visibility.
+* Supports Debian/Ubuntu and Red Hat/Rocky Linux families.
+* No agent required on managed nodes.
+* Secure SSH key-based communication.
+* One-time node registration using tokens.
+* Package classification:
 
-* Token-based node registration
-* Automated SSH trust onboarding
-* Unique node identification (UUID)
-* Node lifecycle tracking
-* Last-seen monitoring
-
-### Inventory Management
-
-* Managed node inventory
-* Hostname tracking
-* IP address tracking
-* Registration timestamps
-* Node state management
-
-### Patch Visibility
-
-* Available package updates
-* Kernel update tracking
-* Security update identification
-* Critical package monitoring
-* Detailed package views
-
-### Telemetry Collection
-
-* Remote system information collection
-* OS version tracking
-* Uptime monitoring
-* Online/offline status
-* Historical telemetry storage
-
-### Platform Operations
-
-* Bootstrap installer
-* Environment readiness validation
-* Runtime configuration management
-* Service health verification
+  * Total Updates
+  * Kernel Updates
+  * Security Updates
+  * Critical Packages
+* Historical telemetry storage using SQLite.
+* Online/Offline node monitoring.
+* Fleet-wide patch inventory from a single dashboard.
 
 ---
 
-## Architecture
+# Architecture
 
-```text
-+--------------------+
-| Managed Linux Node |
-+--------------------+
-          |
-          | Registration Token
-          |
-          v
-+----------------------------+
-| Linux Patch Dashboard      |
-|                            |
-| - Inventory               |
-| - Registration Service    |
-| - Telemetry Collector     |
-| - Compliance Engine       |
-+----------------------------+
-          |
-          | SSH
-          |
-          v
-+----------------------------+
-| Telemetry Collection       |
-+----------------------------+
-          |
-          v
-+----------------------------+
-| SQLite Database            |
-+----------------------------+
+```
++----------------------+           SSH            +----------------------+
+|  Dashboard Server    | -----------------------> |    Managed Node      |
+|                      |                           |                      |
+| Flask Web UI         |                           | Ubuntu / Debian      |
+| Telemetry Collector  |                           | Rocky / RHEL         |
+| SQLite Database      |                           | SSH Server           |
+| Token Management     |                           | Dashboard Public Key |
++----------------------+                           +----------------------+
 ```
 
----
-
-## Project Structure
-
-```text
-linux-patch-dashboard/
-
-├── app/
-├── config/
-├── inventory/
-├── registration/
-├── security/
-├── templates/
-├── bootstrap.sh
-├── collector.py
-├── app.py
-└── requirements.txt
-```
+No software agent runs continuously on the managed nodes. The dashboard securely connects over SSH whenever telemetry is collected.
 
 ---
 
-## Installation
+# Prerequisites
 
-### Clone Repository
+## Dashboard Server
+
+* Linux server (Ubuntu 22.04+ recommended)
+* Python 3.11 or later
+* Git
+* OpenSSH client
+* SQLite3
+* SSH key pair generated for dashboard access
+
+## Managed Nodes
+
+* SSH server running.
+* Dashboard server can reach the node over the network.
+* Python is **not required** on the managed node.
+* SSH user with permission to execute:
+
+  * `apt list --upgradable` (Debian/Ubuntu)
+  * `dnf check-update` or `yum check-update` (RHEL/Rocky)
+
+---
+
+# Step 1: Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Mohammad-Sameer-Infra/linux-patch-dashboard.git
 
 cd linux-patch-dashboard
 ```
 
-### Bootstrap Environment
+---
 
-```bash
-chmod +x bootstrap.sh
-
-./bootstrap.sh
-```
-
-The bootstrap process validates:
-
-* Python installation
-* Runtime directories
-* Inventory configuration
-* Registration token configuration
-* Dashboard settings
-* Public key configuration
-* Virtual environment status
-* Service status
-
-### Create Virtual Environment
+# Step 2: Create Python Virtual Environment
 
 ```bash
 python3 -m venv venv
@@ -143,102 +83,302 @@ python3 -m venv venv
 source venv/bin/activate
 ```
 
-### Install Dependencies
+---
+
+# Step 3: Install Dependencies
 
 ```bash
+pip install --upgrade pip
+
 pip install -r requirements.txt
 ```
 
 ---
 
-## Configuration
+# Step 4: Generate Dashboard SSH Key (First Time Only)
 
-Edit:
+If an SSH key does not already exist:
 
-```text
-config/settings.json
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519
 ```
 
-Configure:
-
-* Dashboard URL
-* Inventory location
-* Registration token storage
-* SSH public key location
-* Dashboard refresh interval
+Press Enter to accept the default location.
 
 ---
 
-## Node Registration
+# Step 5: Configure Dashboard Settings
 
-Generate a registration token from the dashboard.
+Edit:
 
-On the target node:
+```
+config/settings.json
+```
+
+Example:
+
+```json
+{
+    "inventory_file": "inventory/servers.json",
+    "default_ssh_user": "vmadmin"
+}
+```
+
+Adjust values as needed for your environment.
+
+---
+
+# Step 6: Start the Dashboard
+
+For testing:
+
+```bash
+source venv/bin/activate
+
+python3 run.py
+```
+
+Access the dashboard:
+
+```
+http://<dashboard-server-ip>:5000
+```
+
+---
+
+# Step 7: Install as a Systemd Service (Recommended)
+
+Example service file:
+
+```
+/etc/systemd/system/linux-patch-dashboard.service
+```
+
+```ini
+[Unit]
+Description=Linux Patch & Compliance Dashboard
+After=network.target
+
+[Service]
+User=vmadmin
+WorkingDirectory=/home/vmadmin/projects/linux-patch-dashboard
+ExecStart=/home/vmadmin/projects/linux-patch-dashboard/venv/bin/python /home/vmadmin/projects/linux-patch-dashboard/run.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+sudo systemctl daemon-reload
+
+sudo systemctl enable linux-patch-dashboard
+
+sudo systemctl start linux-patch-dashboard
+```
+
+Verify:
+
+```bash
+systemctl status linux-patch-dashboard
+```
+
+---
+
+# Managed Node Registration
+
+## Step 1: Generate a Registration Token
+
+Open the dashboard and browse to:
+
+```
+http://<dashboard-server-ip>:5000/generate-token
+```
+
+Copy the generated token.
+
+---
+
+## Step 2: Copy Registration Script
+
+Copy the registration script to the managed node:
+
+```
+registration/register-node.sh
+```
+
+Make it executable:
+
+```bash
+chmod +x register-node.sh
+```
+
+---
+
+## Step 3: Run Registration
+
+Execute:
 
 ```bash
 ./register-node.sh
 ```
 
-Provide:
+You will be prompted for:
 
 * Dashboard URL
-* Registration token
+* Registration Token
+* SSH Username (optional, press Enter for default)
+* SSH Port (optional, press Enter for 22)
 
-The node will:
+Example:
 
-1. Install dashboard SSH trust.
-2. Register with the platform.
-3. Appear in the managed node inventory.
+```
+Enter dashboard URL: http://192.168.29.152:5000
+Enter registration token: abc123xyz
+Enter SSH username [vmadmin]:
+Enter SSH port [22]:
+```
 
----
+The script will:
 
-## Roadmap
-
-### Phase 1 – Inventory & Patch Visibility
-
-* [x] Node inventory
-* [x] Patch visibility
-* [x] Telemetry collection
-* [x] Registration workflow
-
-### Phase 2 – Platform Readiness
-
-* [x] Bootstrap validation
-* [x] Runtime validation
-* [x] Repository portability
-
-### Phase 3 – Operational Excellence
-
-* [ ] Collector health monitoring
-* [ ] Approval workflow
-* [ ] Node decommissioning
-
-### Phase 4 – Security
-
-* [ ] Authentication
-* [ ] Role-based access control
-* [ ] Audit logging
-
-### Phase 5 – Enterprise Features
-
-* [ ] Patch compliance reporting
-* [ ] Maintenance windows
-* [ ] Node grouping and tagging
-* [ ] Notification integrations
+1. Detect the node hostname and IP.
+2. Install the dashboard SSH public key.
+3. Register the node with the dashboard.
+4. Add the node to the inventory.
 
 ---
 
-## Intended Audience
+# Collecting Telemetry
 
-* Linux System Administrators
-* Infrastructure Engineers
-* Platform Engineers
-* DevOps Engineers
-* Site Reliability Engineers (SRE)
+Run manually:
+
+```bash
+source venv/bin/activate
+
+python3 collector.py
+```
+
+Or configure a scheduled service/timer to collect telemetry periodically.
+
+Example:
+
+```bash
+systemctl status telemetry-collector
+```
 
 ---
 
-## License
+# Dashboard Pages
 
-MIT License
+| URL                | Description                 |
+| ------------------ | --------------------------- |
+| `/`                | Main dashboard              |
+| `/history`         | Historical telemetry        |
+| `/online`          | Online nodes                |
+| `/offline`         | Offline nodes               |
+| `/node/<hostname>` | Node details                |
+| `/generate-token`  | Generate registration token |
+
+---
+
+# Deregistering a Managed Node
+
+## Option 1: Disable Monitoring (Recommended)
+
+Edit:
+
+```
+inventory/servers.json
+```
+
+Change:
+
+```json
+"state": "active"
+```
+
+to:
+
+```json
+"state": "inactive"
+```
+
+Future telemetry collections can ignore inactive nodes while preserving historical data.
+
+## Option 2: Remove Node Completely
+
+Delete the node entry from:
+
+```
+inventory/servers.json
+```
+
+Optionally remove historical telemetry:
+
+```sql
+DELETE FROM telemetry
+WHERE hostname = '<hostname>';
+```
+
+---
+
+# Removing Dashboard SSH Access
+
+On the managed node:
+
+```bash
+nano ~/.ssh/authorized_keys
+```
+
+Remove the dashboard public key entry and save the file.
+
+---
+
+# Troubleshooting
+
+## Dashboard Service Status
+
+```bash
+sudo systemctl status linux-patch-dashboard
+```
+
+## Dashboard Logs
+
+```bash
+sudo journalctl -u linux-patch-dashboard.service -f
+```
+
+## Telemetry Collector Logs
+
+```bash
+sudo journalctl -u telemetry-collector.service -f
+```
+
+## Test SSH Connectivity
+
+```bash
+ssh <user>@<managed-node-ip> hostname
+```
+
+## Test Package Detection
+
+Ubuntu/Debian:
+
+```bash
+ssh <user>@<managed-node-ip> "apt list --upgradable"
+```
+
+Rocky/RHEL:
+
+```bash
+ssh <user>@<managed-node-ip> "dnf check-update"
+```
+
+---
+
+# Project Goal
+
+The primary objective of this project is to provide a simple, lightweight, and agentless Linux patch visibility platform that allows administrators to view pending updates across their infrastructure from a single dashboard without logging into every server individually.
 
