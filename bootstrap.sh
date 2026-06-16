@@ -48,50 +48,76 @@ step "[1/7] Python Validation"
 
 echo "Checking python installation..."
 
-if command -v python3.11 >/dev/null 2>&1
+if [ -x "venv/bin/python" ]
 then
 
-    PYTHON_CMD=python3.11
-
-elif command -v python3 >/dev/null 2>&1
-then
-
-    PYTHON_CMD=python3
+    PYTHON_CMD="venv/bin/python"
 
 else
 
-    print_fail "Python is not installed."
+    if ! command -v python3 >/dev/null 2>&1
+    then
+        print_fail "python3 is not installed."
+        exit 1
+    fi
 
-    exit 1
+    PYTHON_CMD=$(command -v python3)
 
 fi
 
-PYTHON_VERSION=$(${PYTHON_CMD} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
+echo "Using interpreter: $PYTHON_CMD"
 
-echo "Using interpreter: ${PYTHON_CMD}"
-echo "Detected Python version: ${PYTHON_VERSION}"
+PYTHON_VERSION=$(
+"$PYTHON_CMD" -c \
+'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")'
+)
 
-if ! ${PYTHON_CMD} -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)'
+echo "Detected Python version: $PYTHON_VERSION"
+
+if ! "$PYTHON_CMD" -c \
+'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)'
 then
 
+    echo
     print_fail "Unsupported Python version"
-
     echo
     echo "Required : Python 3.11 or newer"
-    echo "Detected : ${PYTHON_VERSION}"
+    echo "Detected : $PYTHON_VERSION"
     echo
-    echo "Please install Python 3.11."
+
+    if [ ! -x "venv/bin/python" ]
+    then
+        echo "Please install Python 3.11+ and create the virtual environment."
+    else
+        echo "Please recreate the virtual environment using Python 3.11+."
+    fi
+
     exit 1
 
 fi
 
-print_pass "Python ${PYTHON_VERSION}"
+print_pass "Python $PYTHON_VERSION"
+
+echo
 
 echo "Checking pip installation..."
 
-PIP_VERSION=$(python3 -m pip --version | awk '{print $2}')
+PIP_VERSION=$(
+"$PYTHON_CMD" -m pip --version 2>/dev/null | awk '{print $2}'
+)
 
-print_pass "pip ${PIP_VERSION}"
+if [ -n "$PIP_VERSION" ]
+then
+
+    print_pass "pip $PIP_VERSION"
+
+else
+
+    print_fail "pip not available"
+
+    exit 1
+
+fi
 
 step "[2/7] Requirements Validation"
 
@@ -341,22 +367,15 @@ echo "Checking virtual environment..."
 if [ -d venv ]
 then
 
-    VENV_PYTHON_VERSION=$(./venv/bin/python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null)
+    VENV_VERSION=$(
+    venv/bin/python -c \
+    'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'
+    )
 
-    if ./venv/bin/python -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)' 2>/dev/null
-    then
+    print_pass \
+    "Virtual environment exists (Python $VENV_VERSION)"
 
-        print_pass "Virtual environment exists (Python ${VENV_PYTHON_VERSION})"
-
-        VENV_OK=1
-
-    else
-
-        print_warn "Virtual environment uses unsupported Python version (${VENV_PYTHON_VERSION})"
-
-        RECOMMENDATIONS=1
-
-    fi
+    VENV_OK=1
 
 else
 

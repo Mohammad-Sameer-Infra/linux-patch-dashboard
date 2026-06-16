@@ -221,10 +221,12 @@ Navigate to the installation directory:
 cd /opt/linux-patch-dashboard
 ```
 
-Create the virtual environment:
+Create the virtual environment using any supported Python interpreter (Python 3.11 or newer).
+
+Examples:
 
 ```bash
-python3 -m venv venv
+python3.11 -m venv venv
 ```
 
 Activate it:
