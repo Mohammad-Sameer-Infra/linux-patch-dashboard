@@ -12,6 +12,7 @@ from app.discovery import discover_hosts
 from app.database import get_telemetry_history
 from app.token_manager import generate_token
 from app.registration import register_node
+from app.config import SETTINGS
 
 @app.route("/")
 def home():
@@ -286,7 +287,9 @@ def api_register():
 @app.route("/public-key")
 def public_key():
 
-    with open("/home/vmadmin/.ssh/id_ed25519.pub") as f:
+    with open(
+        SETTINGS["public_key_file"]
+    ) as f:
 
         key = f.read()
 
