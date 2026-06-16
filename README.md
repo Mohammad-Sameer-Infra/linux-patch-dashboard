@@ -155,6 +155,30 @@ python -m pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 ```
 
+## Install SQLite (if not already installed)
+
+The dashboard uses SQLite for historical telemetry storage. Python includes the SQLite library by default, but the `sqlite3` command-line utility is recommended for troubleshooting and database maintenance.
+
+### Ubuntu / Debian
+
+```bash
+sudo apt update
+
+sudo apt install -y sqlite3
+```
+
+### Rocky Linux / RHEL
+
+```bash
+sudo dnf install -y sqlite
+```
+
+Verify the installation:
+
+```bash
+sqlite3 --version
+```
+
 ## Step 4: Generate Dashboard SSH Key (First Time Only)
 
 If an SSH key does not already exist:

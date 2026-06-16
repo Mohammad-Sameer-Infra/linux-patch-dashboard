@@ -110,6 +110,23 @@ else
 
 fi
 
+echo
+
+echo "Checking SQLite command line utility..."
+
+if command -v sqlite3 >/dev/null 2>&1
+then
+
+    print_pass "sqlite3 installed"
+
+else
+
+    print_warn "sqlite3 command not found"
+
+    RECOMMENDATIONS=1
+
+fi
+
 step "[3/7] Runtime Directory Setup"
 
 echo "Checking inventory directory..."
@@ -377,6 +394,11 @@ else
     if [ $SETTINGS_OK -eq 0 ]
     then
         echo "- Configure dashboard URL in config/settings.json"
+    fi
+
+    if ! command -v sqlite3 >/dev/null 2>&1
+    then
+    	echo "- Install SQLite command line utility (sqlite3)"
     fi
 
     if [ $PUBLIC_KEY_OK -eq 0 ]
