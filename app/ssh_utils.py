@@ -7,10 +7,7 @@ def run_remote_command(server, command):
 
     ip = server["ip"]
 
-    ssh_user = server.get(
-        "ssh_user",
-        SETTINGS["default_ssh_user"]
-    )
+    ssh_user = server["ssh_user"]
 
     ssh_port = server.get(
         "ssh_port",
