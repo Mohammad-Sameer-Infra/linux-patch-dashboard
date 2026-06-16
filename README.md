@@ -204,7 +204,7 @@ Example:
     "dashboard_url": "http://192.168.110.128:5000",
     "inventory_file": "inventory/servers.json",
     "token_file": "security/registration_tokens.json",
-    "public_key_file": "/home/vmadmin/.ssh/id_ed25519.pub",
+    "public_key_file": "/var/lib/patchdashboard/.ssh/id_ed25519.pub",
     "dashboard_refresh_seconds": 30
 }
 ```
@@ -248,9 +248,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=vmadmin
-WorkingDirectory=/home/vmadmin/projects/linux-patch-dashboard
-ExecStart=/home/vmadmin/projects/linux-patch-dashboard/venv/bin/python /home/vmadmin/projects/linux-patch-dashboard/run.py
+User=patchdashboard
+Group=patchdashboard
+WorkingDirectory=/opt/linux-patch-dashboard
+ExecStart=/opt/linux-patch-dashboard/venv/bin/python /opt/linux-patch-dashboard/run.py
 Restart=always
 RestartSec=5
 
@@ -258,7 +259,7 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-> **Important:** Replace `vmadmin` and `/home/vmadmin/...` with the Linux account and installation path used on your dashboard server. For example, if the dashboard is installed under the `root` account, adjust the `User`, `WorkingDirectory`, and `ExecStart` directives accordingly.
+> **Recommended Deployment Standard:** The dashboard is designed to run under a dedicated non-login service account named patchdashboard with the application installed under /opt/linux-patch-dashboard. The example above follows this recommended deployment model. Advanced users may adapt the installation path or service account to match local standards if required.
 
 Reload systemd:
 

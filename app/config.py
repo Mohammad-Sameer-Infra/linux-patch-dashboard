@@ -8,14 +8,7 @@ def get_config():
 
     with open(CONFIG_FILE) as f:
 
-        settings = json.load(f)
-
-    settings.setdefault(
-        "default_ssh_user",
-        "vmadmin"
-    )
-
-    return settings
+        return json.load(f)
 
 
 SETTINGS = get_config()

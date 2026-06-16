@@ -34,10 +34,7 @@ def register_node(data):
 
     ip = data["ip"]
 
-    ssh_user = data.get(
-        "ssh_user",
-        CONFIG["default_ssh_user"]
-    )
+    ssh_user = data["ssh_user"]
 
     ssh_port = data.get(
         "ssh_port",

@@ -1,8 +1,5 @@
 import subprocess
 
-from app.config import SETTINGS
-
-
 def run_remote_command(server, command):
 
     ip = server["ip"]

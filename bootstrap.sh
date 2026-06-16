@@ -127,6 +127,40 @@ else
 
 fi
 
+echo
+
+echo "Checking ssh-keygen utility..."
+
+if command -v ssh-keygen >/dev/null 2>&1
+then
+
+    print_pass "ssh-keygen installed"
+
+else
+
+    print_warn "ssh-keygen not found"
+
+    RECOMMENDATIONS=1
+
+fi
+
+echo
+
+echo "Checking recommended dashboard service account..."
+
+if getent passwd patchdashboard >/dev/null 2>&1
+then
+
+    print_pass "Recommended service account 'patchdashboard' exists"
+
+else
+
+    print_warn "Recommended service account 'patchdashboard' not found"
+
+    RECOMMENDATIONS=1
+
+fi
+
 step "[3/7] Runtime Directory Setup"
 
 echo "Checking inventory directory..."
@@ -264,7 +298,7 @@ fi
 
 echo
 
-echo "Checking public key configuration..."
+echo "Checking dashboard SSH public key..."
 
 PUBLIC_KEY=$(python3 -c "import json; print(json.load(open('config/settings.json'))['public_key_file'])")
 
@@ -419,6 +453,11 @@ else
     if [ $SERVICE_RUNNING -eq 0 ]
     then
         echo "- Start linux-patch-dashboard.service"
+    fi
+
+    if ! getent passwd patchdashboard >/dev/null 2>&1
+    then
+    	echo "- Consider deploying the dashboard using the dedicated 'patchdashboard' service account"
     fi
 
 fi
