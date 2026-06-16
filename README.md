@@ -504,6 +504,68 @@ telemetry.db
 
 ---
 
+# Removing the Dashboard Service
+
+If you no longer wish to run the Linux Patch & Compliance Dashboard, stop and remove the systemd service.
+
+## Step 1: Stop the Service
+
+```bash
+sudo systemctl stop linux-patch-dashboard
+```
+
+## Step 2: Disable Automatic Startup
+
+```bash
+sudo systemctl disable linux-patch-dashboard
+```
+
+## Step 3: Remove the systemd Service File
+
+```bash
+sudo rm -f /etc/systemd/system/linux-patch-dashboard.service
+
+sudo systemctl daemon-reload
+
+sudo systemctl reset-failed
+```
+
+## Step 4: Remove the Application (Optional)
+
+If you wish to completely remove the dashboard application:
+
+```bash
+sudo rm -rf /opt/linux-patch-dashboard
+```
+
+> **Note:** This permanently removes the application code, Python virtual environment, configuration files, inventory, registration tokens, and the SQLite telemetry database stored under the installation directory.
+
+## Step 5: Remove the Dashboard Service Account (Optional)
+
+If you deployed the dashboard using the recommended `patchdashboard` service account, remove it only after confirming that the dashboard is no longer required.
+
+Remove the service account and its home directory:
+
+```bash
+sudo userdel -r patchdashboard
+```
+
+If the command reports that the user is currently in use, ensure the dashboard service has been stopped and all related processes have terminated before retrying.
+
+## Step 6: Remove Dashboard SSH Access from Managed Nodes (Optional)
+
+Removing the dashboard server does not automatically remove its SSH public key from managed nodes.
+
+To revoke dashboard access, log in to each managed node and remove the dashboard public key from:
+
+```text
+~/.ssh/authorized_keys
+```
+
+This prevents any future SSH access using the dashboard keypair.
+
+> **Important:** Removing the dashboard service does not modify or deregister managed nodes. Managed nodes can continue operating normally after the dashboard has been removed.
+
 # De-registering a Managed Node
 
 ## Remove the Node from Monitoring
