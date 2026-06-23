@@ -1,4 +1,4 @@
-# Linux Patch & Compliance Dashboard
+# Linux Patch Dashboard
 
 A lightweight, agentless, web-based dashboard for collecting and viewing Linux patch information across multiple servers without logging into each machine individually.
 
@@ -26,12 +26,16 @@ The dashboard securely connects to managed nodes over SSH, detects the operating
 * Online / Offline node monitoring.
 * Historical telemetry dashboard.
 * Fleet-wide patch inventory from a single interface.
+* Automated installer.
+* Bootstrap validation framework.
+* Systemd service deployment.
+* Dedicated runtime service account.
 
 ---
 
 # Architecture
 
-```
+```text
 +------------------------+             SSH              +------------------------+
 |   Dashboard Server     | ---------------------------> |     Managed Node       |
 |                        |                              |                        |
@@ -43,7 +47,9 @@ The dashboard securely connects to managed nodes over SSH, detects the operating
 +------------------------+                              +------------------------+
 ```
 
-No software agent runs continuously on managed nodes. The dashboard securely connects over SSH whenever telemetry is collected.
+No software agent runs continuously on managed nodes.
+
+The dashboard securely connects over SSH whenever telemetry is collected.
 
 ---
 
@@ -51,45 +57,17 @@ No software agent runs continuously on managed nodes. The dashboard securely con
 
 ## Dashboard Server
 
-| Component              | Minimum Requirement                    |
-| ---------------------- | -------------------------------------- |
-| Operating System       | Ubuntu 22.04+, Rocky Linux 8+, RHEL 8+ |
-| Python                 | **Python 3.11 or newer**               |
-| pip                    | Current supported version              |
-| Git                    | Installed                              |
-| OpenSSH Client         | Installed                              |
-| ssh-keygen             | Installed                              |
-| SQLite CLI (`sqlite3`) | Installed                              |
+| Component        | Requirement                            |
+| ---------------- | -------------------------------------- |
+| Operating System | Ubuntu 22.04+, Rocky Linux 8+, RHEL 8+ |
+| Python           | Python 3.11 or newer                   |
+| Git              | Installed                              |
+| OpenSSH Client   | Installed                              |
+| ssh-keygen       | Installed                              |
+| SQLite CLI       | Installed                              |
+| systemd          | Installed                              |
 
-> **Important**
->
-> The dashboard server requires **Python 3.11 or newer**.
->
-> Modern Python dependencies (Flask, Werkzeug, Blinker, etc.) no longer support older Python versions such as Python 3.6 that ship by default with some enterprise Linux distributions.
->
-> The bootstrap script validates the Python version during installation.
-
-### Selecting the Python Interpreter
-
-The dashboard does not require a specific Python minor release. Any supported version (3.11 or newer) may be used.
-
-Examples:
-
-```bash
-python3 --version
-
-python3 -m venv venv
-```
-
-or, if your distribution provides Python 3.12:
-
-```bash
-python3.12 --version
-
-python3.12 -m venv venv
-```
-
-Use whichever interpreter satisfies the minimum supported version.
+> The dashboard requires Python 3.11 or newer.
 
 ---
 
@@ -98,14 +76,14 @@ Use whichever interpreter satisfies the minimum supported version.
 Managed nodes require only:
 
 * SSH server running.
-* Network connectivity from the dashboard server.
-* SSH user permitted to execute:
+* Network connectivity from dashboard server.
+* SSH user capable of running:
 
-  * `apt list --upgradable`
-  * `dnf check-update`
-  * `yum check-update`
+  * apt list --upgradable
+  * dnf check-update
+  * yum check-update
 
-**Python is NOT required on managed nodes.**
+Python is **not required** on managed nodes.
 
 No persistent agent is installed.
 
@@ -113,23 +91,39 @@ No persistent agent is installed.
 
 # Recommended Deployment Model
 
-The recommended production deployment uses a dedicated non-login service account.
-
-| Component              | Recommended Value                             |
-| ---------------------- | --------------------------------------------- |
-| Service Account        | `patchdashboard`                              |
-| Service Account Home   | `/var/lib/patchdashboard`                     |
-| Installation Directory | `/opt/linux-patch-dashboard`                  |
-| Dashboard SSH Key      | `/var/lib/patchdashboard/.ssh/id_ed25519`     |
-| Dashboard Public Key   | `/var/lib/patchdashboard/.ssh/id_ed25519.pub` |
-
-Existing deployments using another Linux account continue to work, but this deployment model is recommended for new installations.
+| Component                  | Recommended Value                                 |
+| -------------------------- | ------------------------------------------------- |
+| Service Account            | patchdashboard                                    |
+| Service Account Home       | /var/lib/patchdashboard                           |
+| Installation Directory     | /opt/linux-patch-dashboard                        |
+| Dashboard SSH Key          | /var/lib/patchdashboard/.ssh/id_ed25519           |
+| Dashboard Public Key       | /var/lib/patchdashboard/.ssh/id_ed25519.pub       |
+| Python Virtual Environment | /opt/linux-patch-dashboard/venv                   |
+| Service File               | /etc/systemd/system/linux-patch-dashboard.service |
+| Runtime User               | patchdashboard                                    |
+| Service Manager            | systemd                                           |
 
 ---
 
-# Dashboard Server Installation
+# Ownership Model
 
-## Step 1: Install Prerequisites
+The recommended deployment separates source-code ownership from runtime ownership.
+
+| Purpose            | User                |
+| ------------------ | ------------------- |
+| Source Code        | Administrative User |
+| Git Operations     | Administrative User |
+| Dashboard Runtime  | patchdashboard      |
+| Dashboard SSH Keys | patchdashboard      |
+| Systemd Service    | patchdashboard      |
+
+The installer intentionally does not modify ownership of the application source tree.
+
+---
+
+# Installation
+
+## Step 1 - Install Prerequisites
 
 ### Ubuntu / Debian
 
@@ -146,10 +140,6 @@ sudo apt install -y \
 ```
 
 ### Rocky Linux / RHEL
-
-Install Python 3.11+ if necessary.
-
-Example:
 
 ```bash
 sudo dnf install -y \
@@ -168,28 +158,7 @@ python3 --version
 
 ---
 
-## Step 2: Create the Dashboard Service Account
-
-Create a dedicated non-login service account:
-
-```bash
-sudo useradd \
-    --system \
-    --home-dir /var/lib/patchdashboard \
-    --create-home \
-    --shell /sbin/nologin \
-    patchdashboard
-```
-
-Verify:
-
-```bash
-getent passwd patchdashboard
-```
-
----
-
-## Step 3: Clone the Repository
+## Step 2 - Clone Repository
 
 ```bash
 cd /opt
@@ -198,91 +167,115 @@ sudo git clone \
     https://github.com/Mohammad-Sameer-Infra/linux-patch-dashboard.git
 ```
 
-Set ownership:
+Optional:
 
 ```bash
-sudo chown -R patchdashboard:patchdashboard \
+sudo chown -R <admin-user>:<admin-user> \
     /opt/linux-patch-dashboard
 ```
 
 ---
 
-## Step 4: Create the Python Virtual Environment
+## Step 3 - Run Installer (Recommended)
 
-Switch to the service account:
-
-```bash
-sudo -u patchdashboard -s
-```
-
-Navigate to the installation directory:
+Execute:
 
 ```bash
 cd /opt/linux-patch-dashboard
+
+sudo ./install.sh
 ```
 
-Create the virtual environment using any supported Python interpreter (Python 3.11 or newer).
+The installer automatically:
 
-Examples:
+* Validates prerequisites.
+* Detects Python 3.11+.
+* Creates the patchdashboard service account.
+* Creates dashboard SSH keys.
+* Creates and updates settings.json.
+* Creates the Python virtual environment.
+* Installs Python dependencies.
+* Creates the systemd service.
+* Enables the service.
+* Starts the service.
+* Executes bootstrap validation.
 
-```bash
-python3.11 -m venv venv
-```
+The installer is safe to run multiple times.
 
-Activate it:
+The installer never:
 
-```bash
-source venv/bin/activate
-```
-
-Upgrade packaging tools:
-
-```bash
-python -m pip install --upgrade pip setuptools wheel
-```
-
-Install project dependencies:
-
-```bash
-pip install -r requirements.txt
-```
+* Overwrites existing SSH keys.
+* Silently overwrites dashboard configuration.
+* Deletes telemetry data.
+* Installs operating-system packages automatically.
 
 ---
 
-## Step 5: Generate the Dashboard SSH Key
+# Installer Components
 
-Create the SSH directory:
-
-```bash
-mkdir -p /var/lib/patchdashboard/.ssh
-
-chmod 700 /var/lib/patchdashboard/.ssh
-```
-
-Generate the dashboard SSH keypair:
-
-```bash
-ssh-keygen \
-    -t ed25519 \
-    -N "" \
-    -f /var/lib/patchdashboard/.ssh/id_ed25519
-```
-
-This keypair is used by the dashboard to authenticate to managed nodes.
+| Script       | Purpose                                |
+| ------------ | -------------------------------------- |
+| install.sh   | Install or repair dashboard deployment |
+| bootstrap.sh | Validate deployment health             |
+| uninstall.sh | Safe dashboard removal                 |
 
 ---
 
-## Step 6: Configure Dashboard Settings
+## install.sh
 
-Copy the example configuration:
+Responsibilities:
 
-```bash
-cp config/settings.example.json config/settings.json
-```
+* Service account creation
+* SSH key management
+* Configuration management
+* Virtual environment creation
+* Dependency installation
+* Systemd service deployment
+* Runtime validation
+* Bootstrap execution
 
-Edit:
+---
 
-```
+## bootstrap.sh
+
+Validation only.
+
+The bootstrap script never modifies the system.
+
+It validates:
+
+* Python version
+* pip
+* requirements.txt
+* sqlite3
+* ssh-keygen
+* Inventory configuration
+* Registration token database
+* settings.json
+* Dashboard public key
+* Virtual environment
+* Systemd service installation
+* Systemd service health
+
+---
+
+## uninstall.sh
+
+Used for safe dashboard removal.
+
+Future releases may include:
+
+* Data preservation options
+* Service account cleanup
+* Runtime cleanup automation
+
+---
+
+# Configuration
+
+Configuration file:
+
+```text
 config/settings.json
 ```
 
@@ -290,7 +283,7 @@ Example:
 
 ```json
 {
-    "dashboard_url": "http://YOUR_SERVER_IP:5000",
+    "dashboard_url": "http://192.168.110.128:5000",
     "inventory_file": "inventory/servers.json",
     "token_file": "security/registration_tokens.json",
     "public_key_file": "/var/lib/patchdashboard/.ssh/id_ed25519.pub",
@@ -298,121 +291,15 @@ Example:
 }
 ```
 
-Update:
-
-* `dashboard_url`
-* `public_key_file` (if using a custom location)
-
----
-
-## Step 7: Run Bootstrap Validation
-
-Execute:
-
-```bash
-./bootstrap.sh
-```
-
-Bootstrap validates:
-
-* Python version.
-* pip installation.
-* requirements.txt.
-* SQLite CLI.
-* ssh-keygen.
-* Inventory and security directories.
-* Configuration files.
-* Dashboard SSH public key.
-* Virtual environment.
-* Dashboard systemd service.
-
-Bootstrap also recommends (but does not require) using the `patchdashboard` service account.
-
----
-
-## Step 8: Test the Dashboard
-
-Activate the virtual environment:
-
-```bash
-source venv/bin/activate
-```
-
-Run:
-
-```bash
-python run.py
-```
-
-Access:
-
-```
-http://<dashboard-server-ip>:5000
-```
-
----
-
-## Step 9: Install as a systemd Service
-
-Create:
-
-```
-/etc/systemd/system/linux-patch-dashboard.service
-```
-
-Example:
-
-```ini
-[Unit]
-Description=Linux Patch & Compliance Dashboard
-After=network.target
-
-[Service]
-Type=simple
-User=patchdashboard
-Group=patchdashboard
-WorkingDirectory=/opt/linux-patch-dashboard
-ExecStart=/opt/linux-patch-dashboard/venv/bin/python /opt/linux-patch-dashboard/run.py
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Reload systemd:
-
-```bash
-sudo systemctl daemon-reload
-```
-
-Enable the service:
-
-```bash
-sudo systemctl enable linux-patch-dashboard
-```
-
-Start the service:
-
-```bash
-sudo systemctl start linux-patch-dashboard
-```
-
-Verify:
-
-```bash
-sudo systemctl status linux-patch-dashboard
-```
-
 ---
 
 # Managed Node Registration
 
-## Step 1: Generate a Registration Token
+## Generate Registration Token
 
 Open:
 
-```
+```text
 http://<dashboard-server-ip>:5000/generate-token
 ```
 
@@ -420,17 +307,17 @@ Copy the generated token.
 
 ---
 
-## Step 2: Copy the Registration Script
+## Copy Registration Script
 
 Copy:
 
-```
+```text
 registration/register-node.sh
 ```
 
 to the managed node.
 
-Make it executable:
+Make executable:
 
 ```bash
 chmod +x register-node.sh
@@ -438,7 +325,7 @@ chmod +x register-node.sh
 
 ---
 
-## Step 3: Run Registration
+## Register Node
 
 Execute:
 
@@ -448,30 +335,30 @@ Execute:
 
 The script prompts for:
 
-* Dashboard URL.
-* Registration token.
+* Dashboard URL
+* Registration Token
 
 The script automatically detects:
 
-* Hostname.
-* Primary IP address.
-* Current Linux user (`whoami`).
-* SSH port.
-
-No manual SSH user configuration is required.
+* Hostname
+* Primary IP Address
+* Current User
+* SSH Port
 
 The script:
 
-1. Downloads the dashboard public key.
-2. Installs it into `~/.ssh/authorized_keys`.
-3. Registers the node with the dashboard.
-4. Updates the dashboard inventory.
+1. Downloads dashboard public key.
+2. Updates authorized_keys.
+3. Registers node.
+4. Updates dashboard inventory.
+
+No manual SSH-user configuration is required.
 
 ---
 
 # Collecting Telemetry
 
-Run manually:
+Manual collection:
 
 ```bash
 source venv/bin/activate
@@ -479,15 +366,15 @@ source venv/bin/activate
 python collector.py
 ```
 
-Telemetry is collected from every active node in:
+Telemetry is collected from:
 
-```
+```text
 inventory/servers.json
 ```
 
-Collected data is stored in:
+Results are stored in:
 
-```
+```text
 telemetry.db
 ```
 
@@ -495,135 +382,91 @@ telemetry.db
 
 # Dashboard Pages
 
-| URL                | Description                   |
-| ------------------ | ----------------------------- |
-| `/`                | Main dashboard                |
-| `/history`         | Historical telemetry          |
-| `/online`          | Online nodes                  |
-| `/offline`         | Offline nodes                 |
-| `/node/<hostname>` | Node details                  |
-| `/generate-token`  | Registration token generation |
+| URL              | Description                   |
+| ---------------- | ----------------------------- |
+| /                | Main Dashboard                |
+| /history         | Historical Telemetry          |
+| /online          | Online Nodes                  |
+| /offline         | Offline Nodes                 |
+| /node/<hostname> | Node Details                  |
+| /generate-token  | Registration Token Generation |
 
 ---
 
-# Removing the Dashboard Service
+# Service Management
 
-If you no longer wish to run the Linux Patch & Compliance Dashboard, stop and remove the systemd service.
-
-## Step 1: Stop the Service
+Check status:
 
 ```bash
-sudo systemctl stop linux-patch-dashboard
+sudo systemctl status linux-patch-dashboard
 ```
 
-## Step 2: Disable Automatic Startup
+Restart:
 
 ```bash
-sudo systemctl disable linux-patch-dashboard
+sudo systemctl restart linux-patch-dashboard
 ```
 
-## Step 3: Remove the systemd Service File
+View logs:
 
 ```bash
-sudo rm -f /etc/systemd/system/linux-patch-dashboard.service
-
-sudo systemctl daemon-reload
-
-sudo systemctl reset-failed
+sudo journalctl -u linux-patch-dashboard.service -f
 ```
 
-## Step 4: Remove the Application (Optional)
-
-If you wish to completely remove the dashboard application:
-
-```bash
-sudo rm -rf /opt/linux-patch-dashboard
-```
-
-> **Note:** This permanently removes the application code, Python virtual environment, configuration files, inventory, registration tokens, and the SQLite telemetry database stored under the installation directory.
-
-## Step 5: Remove the Dashboard Service Account (Optional)
-
-If you deployed the dashboard using the recommended `patchdashboard` service account, remove it only after confirming that the dashboard is no longer required.
-
-Remove the service account and its home directory:
-
-```bash
-sudo userdel -r patchdashboard
-```
-
-If the command reports that the user is currently in use, ensure the dashboard service has been stopped and all related processes have terminated before retrying.
-
-## Step 6: Remove Dashboard SSH Access from Managed Nodes (Optional)
-
-Removing the dashboard server does not automatically remove its SSH public key from managed nodes.
-
-To revoke dashboard access, log in to each managed node and remove the dashboard public key from:
-
-```text
-~/.ssh/authorized_keys
-```
-
-This prevents any future SSH access using the dashboard keypair.
-
-> **Important:** Removing the dashboard service does not modify or deregister managed nodes. Managed nodes can continue operating normally after the dashboard has been removed.
+---
 
 # De-registering a Managed Node
 
-## Remove the Node from Monitoring
+Remove the node from:
 
-Delete the node entry from:
-
-```
+```text
 inventory/servers.json
 ```
 
-or, in future versions, mark the node inactive.
-
-The dashboard inventory is controlled entirely by `inventory/servers.json`.
-
-## Remove Historical Telemetry (Optional)
-
-Delete telemetry history:
+Optional telemetry cleanup:
 
 ```sql
 DELETE FROM telemetry
 WHERE hostname = '<hostname>';
 ```
 
-This removes historical records but does not affect inventory.
+Optional SSH cleanup:
 
-## Remove Dashboard SSH Access (Optional)
+Remove dashboard public key from:
 
-On the managed node:
-
-```bash
-nano ~/.ssh/authorized_keys
+```text
+~/.ssh/authorized_keys
 ```
 
-Remove the dashboard public key entry.
+on the managed node.
 
 ---
 
 # Troubleshooting
 
-## Check Dashboard Service
+## Validate Deployment
+
+```bash
+./bootstrap.sh
+```
+
+---
+
+## Check Service
 
 ```bash
 sudo systemctl status linux-patch-dashboard
 ```
 
-## View Dashboard Logs
+---
+
+## View Logs
 
 ```bash
 sudo journalctl -u linux-patch-dashboard.service -f
 ```
 
-## Verify Bootstrap Status
-
-```bash
-./bootstrap.sh
-```
+---
 
 ## Test SSH Connectivity
 
@@ -631,19 +474,25 @@ sudo journalctl -u linux-patch-dashboard.service -f
 ssh <user>@<managed-node-ip> hostname
 ```
 
-## Test Dashboard Public Key Endpoint
+---
+
+## Test Public Key Endpoint
 
 ```bash
 curl http://127.0.0.1:5000/public-key
 ```
 
-## View Telemetry Database
+---
 
-List telemetry records:
+## View Telemetry Database
 
 ```bash
 sqlite3 telemetry.db
+```
 
+Example:
+
+```sql
 SELECT hostname,
        updates,
        security_updates,
@@ -652,15 +501,57 @@ SELECT hostname,
 FROM telemetry;
 ```
 
-## SELinux Considerations
+---
 
-On SELinux-enabled systems (Rocky Linux / RHEL), ensure the dashboard service account can:
+# Project Status
 
-* access the application directory,
-* access the configured SSH public key,
-* read/write the SQLite database.
+## v1.0 - Completed
 
-If troubleshooting a new deployment, temporarily setting SELinux to permissive mode can help identify policy-related issues.
+* Registration Workflow
+* Telemetry Collection
+* Online/Offline Monitoring
+* Historical Telemetry
+* Bootstrap Validation
+
+---
+
+## v1.1 - Completed
+
+* install.sh
+* bootstrap.sh
+* Virtual Environment Management
+* Dependency Management
+* Service Account Deployment
+* Systemd Service Deployment
+* Service Validation
+* Runtime Ownership Controls
+* Installer-Based Deployment
+
+---
+
+## v1.2 - Planned
+
+* Node Deregistration API
+* Node Retirement Workflow
+* Inventory Lifecycle Management
+* Telemetry Cleanup Automation
+
+---
+
+## v2.0 - Planned
+
+* Scheduled Telemetry Collection
+* Ansible Integration
+* Patch Orchestration
+* Fleet Automation
+
+---
+
+## v3.0 - Planned
+
+* Compliance Reporting
+* Trend Analysis
+* AI-Assisted Recommendations
 
 ---
 
@@ -668,5 +559,6 @@ If troubleshooting a new deployment, temporarily setting SELinux to permissive m
 
 The primary objective of this project is to provide a lightweight, agentless Linux patch visibility platform that enables administrators to quickly determine the patch status of their infrastructure from a single dashboard without logging into every individual server.
 
-Current development is focused on **patch inventory and visibility**. Automated patch deployment and Ansible integration may be considered as future enhancements once the dashboard and registration workflow are fully stabilized.
+Current development is focused on patch inventory and visibility.
 
+Future enhancements may include automation, orchestration, compliance reporting, and AI-assisted operational insights.
