@@ -9,6 +9,8 @@ PRIVATE_KEY="${SSH_DIR}/id_ed25519"
 PUBLIC_KEY="${PRIVATE_KEY}.pub"
 RECOMMENDED_INSTALL_DIR="/opt/linux-patch-dashboard"
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_INSTALL_DIR="$RECOMMENDED_INSTALL_DIR"
+VENV_DIR="${APP_INSTALL_DIR}/venv"
 
 print_header() {
 
@@ -54,7 +56,7 @@ print_header
 # Root Validation
 #
 
-print_step "[1/8] Root Validation"
+print_step "[1/10] Root Validation"
 
 if [ "$(id -u)" -ne 0 ]
 then
@@ -72,7 +74,7 @@ print_pass "Running with root privileges"
 # Prerequisite Validation
 #
 
-print_step "[2/8] Prerequisite Validation"
+print_step "[2/10] Prerequisite Validation"
 
 REQUIRED_COMMANDS=(
     git
@@ -108,7 +110,7 @@ done
 # Python Detection
 #
 
-print_step "[3/8] Python Runtime Detection"
+print_step "[3/10] Python Runtime Detection"
 
 PYTHON_CMD=""
 
@@ -162,7 +164,7 @@ print_pass "Python version: $PYTHON_VERSION"
 # Service Account Validation
 #
 
-print_step "[4/8] Dashboard Service Account"
+print_step "[4/10] Dashboard Service Account"
 
 if getent passwd "$SERVICE_USER" >/dev/null 2>&1
 then
@@ -188,7 +190,7 @@ fi
 # Installation Directory
 #
 
-print_step "[5/8] Installation Directory"
+print_step "[5/10] Installation Directory"
 
 CURRENT_DIR="$INSTALL_DIR"
 
@@ -214,7 +216,7 @@ fi
 # Dashboard SSH Key
 #
 
-print_step "[6/8] Dashboard SSH Key"
+print_step "[6/10] Dashboard SSH Key"
 
 if [ ! -d "$SSH_DIR" ]
 then
@@ -252,7 +254,7 @@ fi
 # Dashboard Configuration
 #
 
-print_step "[7/8] Dashboard Configuration"
+print_step "[7/10] Dashboard Configuration"
 
 SETTINGS_FILE="${INSTALL_DIR}/config/settings.json"
 SETTINGS_EXAMPLE="${INSTALL_DIR}/config/settings.example.json"
@@ -283,7 +285,7 @@ fi
 # Dashboard URL Configuration
 #
 
-print_step "[8/8] Dashboard URL Configuration"
+print_step "[8/10] Dashboard URL Configuration"
 
 DEFAULT_IP=$(hostname -I | awk '{print $1}')
 DEFAULT_URL="http://${DEFAULT_IP}:5000"
@@ -351,6 +353,52 @@ EOF
 
 print_pass "Updated settings.json"
 
+#
+# Python Virtual Environment
+#
+
+print_step "[9/10] Python Virtual Environment"
+
+if [ -d "$VENV_DIR" ]
+then
+
+    print_pass "Virtual environment already exists"
+
+else
+
+    runuser -u "$SERVICE_USER" -- \
+        "$PYTHON_CMD" -m venv "$VENV_DIR"
+
+    	chown -R "$SERVICE_USER:$SERVICE_USER" "$VENV_DIR"
+
+    print_pass "Created virtual environment"
+
+fi
+
+#
+# Python Dependency Installation
+#
+
+print_step "[10/10] Python Dependency Installation"
+
+REQUIREMENTS_FILE="${INSTALL_DIR}/requirements.txt"
+
+if [ ! -f "$REQUIREMENTS_FILE" ]
+then
+
+    print_fail "requirements.txt not found"
+
+    exit 1
+
+fi
+
+runuser -u "$SERVICE_USER" -- \
+    "$VENV_DIR/bin/pip" install \
+    -r "$REQUIREMENTS_FILE"
+
+print_pass "Installed Python dependencies"
+
+
 echo
 echo "====================================="
 echo " Installation Summary"
@@ -362,5 +410,5 @@ echo "Python Runtime  : $PYTHON_CMD"
 echo "Dashboard URL   : $DASHBOARD_URL"
 echo "Public Key File : $PUBLIC_KEY"
 echo
-echo "Iteration 2 completed successfully."
+echo "Installer completed successfully."
 echo
