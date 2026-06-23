@@ -11,6 +11,7 @@ RECOMMENDED_INSTALL_DIR="/opt/linux-patch-dashboard"
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_INSTALL_DIR="$RECOMMENDED_INSTALL_DIR"
 VENV_DIR="${APP_INSTALL_DIR}/venv"
+SERVICE_FILE="/etc/systemd/system/linux-patch-dashboard.service"
 
 print_header() {
 
@@ -56,7 +57,7 @@ print_header
 # Root Validation
 #
 
-print_step "[1/10] Root Validation"
+print_step "[1/15] Root Validation"
 
 if [ "$(id -u)" -ne 0 ]
 then
@@ -74,7 +75,7 @@ print_pass "Running with root privileges"
 # Prerequisite Validation
 #
 
-print_step "[2/10] Prerequisite Validation"
+print_step "[2/15] Prerequisite Validation"
 
 REQUIRED_COMMANDS=(
     git
@@ -110,7 +111,7 @@ done
 # Python Detection
 #
 
-print_step "[3/10] Python Runtime Detection"
+print_step "[3/15] Python Runtime Detection"
 
 PYTHON_CMD=""
 
@@ -164,7 +165,7 @@ print_pass "Python version: $PYTHON_VERSION"
 # Service Account Validation
 #
 
-print_step "[4/10] Dashboard Service Account"
+print_step "[4/15] Dashboard Service Account"
 
 if getent passwd "$SERVICE_USER" >/dev/null 2>&1
 then
@@ -190,7 +191,7 @@ fi
 # Installation Directory
 #
 
-print_step "[5/10] Installation Directory"
+print_step "[5/15] Installation Directory"
 
 CURRENT_DIR="$INSTALL_DIR"
 
@@ -216,7 +217,7 @@ fi
 # Dashboard SSH Key
 #
 
-print_step "[6/10] Dashboard SSH Key"
+print_step "[6/15] Dashboard SSH Key"
 
 if [ ! -d "$SSH_DIR" ]
 then
@@ -254,7 +255,7 @@ fi
 # Dashboard Configuration
 #
 
-print_step "[7/10] Dashboard Configuration"
+print_step "[7/15] Dashboard Configuration"
 
 SETTINGS_FILE="${INSTALL_DIR}/config/settings.json"
 SETTINGS_EXAMPLE="${INSTALL_DIR}/config/settings.example.json"
@@ -285,7 +286,7 @@ fi
 # Dashboard URL Configuration
 #
 
-print_step "[8/10] Dashboard URL Configuration"
+print_step "[8/15] Dashboard URL Configuration"
 
 DEFAULT_IP=$(hostname -I | awk '{print $1}')
 DEFAULT_URL="http://${DEFAULT_IP}:5000"
@@ -357,7 +358,7 @@ print_pass "Updated settings.json"
 # Python Virtual Environment
 #
 
-print_step "[9/10] Python Virtual Environment"
+print_step "[9/15] Python Virtual Environment"
 
 if [ -d "$VENV_DIR" ]
 then
@@ -369,17 +370,18 @@ else
     runuser -u "$SERVICE_USER" -- \
         "$PYTHON_CMD" -m venv "$VENV_DIR"
 
-    	chown -R "$SERVICE_USER:$SERVICE_USER" "$VENV_DIR"
-
     print_pass "Created virtual environment"
 
 fi
+
+
+chown -R "$SERVICE_USER:$SERVICE_USER" "$VENV_DIR"
 
 #
 # Python Dependency Installation
 #
 
-print_step "[10/10] Python Dependency Installation"
+print_step "[10/15] Python Dependency Installation"
 
 REQUIREMENTS_FILE="${INSTALL_DIR}/requirements.txt"
 
@@ -398,6 +400,120 @@ runuser -u "$SERVICE_USER" -- \
 
 print_pass "Installed Python dependencies"
 
+#
+# Runtime Ownership
+#
+
+print_step "[11/15] Runtime Ownership"
+
+chown -R "$SERVICE_USER:$SERVICE_USER" \
+    "$SERVICE_HOME"
+
+chown -R "$SERVICE_USER:$SERVICE_USER" \
+    "$VENV_DIR"
+
+print_pass "Runtime ownership verified"
+
+#
+# Systemd Service Creation
+#
+
+print_step "[12/15] Systemd Service Creation"
+
+if [ -f "$SERVICE_FILE" ]
+then
+
+    cp "$SERVICE_FILE" \
+       "${SERVICE_FILE}.bak"
+
+    print_pass "Backed up existing service file"
+
+fi
+
+cat > "$SERVICE_FILE" <<EOF
+[Unit]
+Description=Linux Patch Dashboard
+After=network.target
+
+[Service]
+Type=simple
+
+User=$SERVICE_USER
+Group=$SERVICE_USER
+
+WorkingDirectory=$INSTALL_DIR
+
+ExecStart=$VENV_DIR/bin/python $INSTALL_DIR/run.py
+
+Restart=always
+RestartSec=5
+
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemd-analyze verify "$SERVICE_FILE"
+
+print_pass "Created systemd service"
+#
+# Service Enablement
+#
+
+print_step "[13/15] Service Enablement"
+
+systemctl daemon-reload
+
+systemctl enable linux-patch-dashboard
+
+systemctl restart linux-patch-dashboard
+
+print_pass "Service enabled and restarted"
+
+#
+# Service Validation
+#
+
+print_step "[14/15] Service Validation"
+
+SERVICE_STATUS=$(
+systemctl is-active linux-patch-dashboard
+)
+
+if [ "$SERVICE_STATUS" = "active" ]
+then
+
+    print_pass "Dashboard service is running"
+
+else
+
+    print_fail "Dashboard service failed to start"
+
+    systemctl status \
+        linux-patch-dashboard \
+        --no-pager
+
+    exit 1
+
+fi
+
+#
+# Bootstrap Validation
+#
+
+print_step "[15/15] Bootstrap Validation"
+
+if bash "$INSTALL_DIR/bootstrap.sh"
+then
+
+    print_pass "Bootstrap validation completed"
+
+else
+
+    print_warn "Bootstrap validation reported issues"
+
+fi
 
 echo
 echo "====================================="
@@ -409,6 +525,7 @@ echo "Installation Dir: $CURRENT_DIR"
 echo "Python Runtime  : $PYTHON_CMD"
 echo "Dashboard URL   : $DASHBOARD_URL"
 echo "Public Key File : $PUBLIC_KEY"
+echo "Service Status  : $SERVICE_STATUS"
 echo
 echo "Installer completed successfully."
 echo
