@@ -1,0 +1,22 @@
+{
+    "name": "Patchli",
+    "tagline": "Simplifying Linux Infrastructure Operations",
+
+    "edition": "Community",
+
+    "version": "1.0.0",
+
+    "codename": "Foundation",
+
+    "maintainer": "Mohammad Sameer",
+
+    "license": "Apache License 2.0",
+
+    "copyright": "Copyright © 2026 Mohammad Sameer",
+
+    "github": "https://github.com/Mohammad-Sameer-Infra/linux-patch-dashboard",
+
+    "website": "",
+
+    "support": ""
+}

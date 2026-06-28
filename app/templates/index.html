@@ -7,7 +7,7 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
-    <title>Linux Patch Dashboard</title>
+    <title>{{ product.name }}</title>
 
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
@@ -20,7 +20,11 @@
     <div class="navbar">
 
 	    <div class="nav-title">
-        	Linux Patch & Compliance Dashboard
+        	<strong>{{ product.name }}</strong>
+
+		<div class="product-tagline">
+			{{ product.tagline }}
+		</div>
     	    </div>
 
     	    <div class="nav-right">

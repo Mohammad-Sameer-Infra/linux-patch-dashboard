@@ -8,7 +8,7 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
-    <title>Telemetry History</title>
+    <title>{{ product.name }} - History</title>
 
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
@@ -23,7 +23,13 @@
     <div class="navbar">
 
     	<div class="nav-title">
-        	Telemetry History
+        	<strong>{{ product.name }}</strong>
+
+		<div class="product-tagline">
+
+			 Telemetry History
+
+		</div>
     	</div>
 
     	<div class="nav-links">
