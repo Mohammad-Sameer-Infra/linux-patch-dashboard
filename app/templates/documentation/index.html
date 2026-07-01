@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>{{ product.name }} Documentation</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+<div class="navbar">
+
+    <div class="nav-title">
+
+        <strong>{{ product.name }}</strong>
+
+        <div class="product-tagline">
+
+            Documentation Center
+
+        </div>
+
+    </div>
+
+    <div class="nav-links">
+
+        <a href="/">Dashboard</a>
+
+        <a href="/history">History</a>
+
+        <a href="/documentation">Documentation</a>
+
+    </div>
+
+</div>
+
+<div class="container">
+
+<h2>Welcome to Patchli Documentation</h2>
+
+<p>
+
+Everything you need to install, operate and extend Patchli.
+
+</p>
+
+<div class="card">
+
+<h3>Documentation Categories</h3>
+
+<ul>
+
+<li><a href="/documentation/getting-started">📘 Getting Started</a></li>
+
+<li><a href="/documentation/administration">⚙ Administration</a></li>
+
+<li><a href="/documentation/architecture">🏗 Architecture</a></li>
+
+<li><a href="/documentation/troubleshooting">🩺 Troubleshooting</a></li>
+
+<li><a href="/documentation/faq">❓ FAQ</a></li>
+
+<li><a href="/documentation/roadmap">🛣 Roadmap</a></li>
+
+<li><a href="/documentation/release-notes">📝 Release Notes</a></li>
+
+</ul>
+
+</div>
+
+</div>
+
+</body>
+
+</html>

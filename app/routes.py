@@ -8,7 +8,6 @@ from app import app
 from app.system_info import get_system_info
 from app.inventory import load_servers
 from app.remote_info import get_remote_system_info
-from app.discovery import discover_hosts
 from app.database import get_telemetry_history
 from app.token_manager import generate_token
 from app.registration import register_node
@@ -254,16 +253,6 @@ def critical_packages(hostname):
             )
 
     return "Node Not Found", 404
-
-@app.route("/discovery")
-def discovery():
-
-    discovered_hosts = discover_hosts()
-
-    return render_template(
-        "discovery.html",
-        discovered_hosts=discovered_hosts
-    )
 
 @app.route("/generate-token")
 def generate_registration_token():
