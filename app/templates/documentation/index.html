@@ -17,67 +17,265 @@
 
 <body>
 
-<div class="navbar">
+    <div class="navbar">
 
-    <div class="nav-title">
+        <div class="nav-title">
 
-        <strong>{{ product.name }}</strong>
+            {{ product.name }}
 
-        <div class="product-tagline">
+        </div>
 
-            Documentation Center
+        <div class="nav-links">
+
+            <a href="/">Dashboard</a>
+
+            <a href="/history">History</a>
+
+            <a href="/documentation">Documentation</a>
+
+            <a href="/about">About</a>
 
         </div>
 
     </div>
 
-    <div class="nav-links">
+    <div class="container">
 
-        <a href="/">Dashboard</a>
+        <h2 class="section-title">
+            Documentation Center
+        </h2>
 
-        <a href="/history">History</a>
+        <div class="card">
 
-        <a href="/documentation">Documentation</a>
+            <h2>{{ product.name }}</h2>
+
+            <p>
+                <strong>{{ product.tagline }}</strong>
+            </p>
+
+            <p>
+                Welcome to the Patchli Documentation Center.
+                Here you will find everything required to install,
+                configure, administer and extend Patchli.
+            </p>
+
+            <p>
+
+                <strong>Edition:</strong>
+                {{ product.edition }}
+
+                <br>
+
+                <strong>Version:</strong>
+                {{ product.version }}
+
+                <br>
+
+                <strong>Codename:</strong>
+                {{ product.codename }}
+
+            </p>
+
+        </div>
+
+        <div class="card">
+
+            <h2>Documentation Categories</h2>
+
+            <table>
+
+                <tr>
+
+                    <th>Category</th>
+
+                    <th>Description</th>
+
+                </tr>
+
+                <tr>
+
+                    <td>
+
+                        <a href="/documentation/getting-started">
+
+                            📘 Getting Started
+
+                        </a>
+
+                    </td>
+
+                    <td>
+
+                        Learn Patchli and complete your first deployment.
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>
+
+                        <a href="/documentation/administration">
+
+                            ⚙ Administration
+
+                        </a>
+
+                    </td>
+
+                    <td>
+
+                        Configure and manage your Patchli deployment.
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>
+
+                        <a href="/documentation/architecture">
+
+                            🏗 Architecture
+
+                        </a>
+
+                    </td>
+
+                    <td>
+
+                        Understand Patchli's internal architecture and design.
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>
+
+                        <a href="/documentation/troubleshooting">
+
+                            🩺 Troubleshooting
+
+                        </a>
+
+                    </td>
+
+                    <td>
+
+                        Resolve common deployment and operational issues.
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>
+
+                        <a href="/documentation/faq">
+
+                            ❓ Frequently Asked Questions
+
+                        </a>
+
+                    </td>
+
+                    <td>
+
+                        Answers to common Patchli questions.
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>
+
+                        <a href="/documentation/roadmap">
+
+                            🛣 Roadmap
+
+                        </a>
+
+                    </td>
+
+                    <td>
+
+                        Discover the future direction of Patchli.
+
+                    </td>
+
+                </tr>
+
+                <tr>
+
+                    <td>
+
+                        <a href="/documentation/release-notes">
+
+                            📝 Release Notes
+
+                        </a>
+
+                    </td>
+
+                    <td>
+
+                        Learn what has changed in each release.
+
+                    </td>
+
+                </tr>
+
+            </table>
+
+        </div>
+
+        <div class="card">
+
+            <h2>Product Information</h2>
+
+            <ul>
+
+                <li>
+
+                    <strong>Maintainer:</strong>
+
+                    {{ product.maintainer }}
+
+                </li>
+
+                <li>
+
+                    <strong>License:</strong>
+
+                    {{ product.license }}
+
+                </li>
+
+                <li>
+
+                    <strong>GitHub:</strong>
+
+                    <a href="{{ product.github }}"
+                       target="_blank">
+
+                        {{ product.github }}
+
+                    </a>
+
+                </li>
+
+            </ul>
+
+        </div>
 
     </div>
-
-</div>
-
-<div class="container">
-
-<h2>Welcome to Patchli Documentation</h2>
-
-<p>
-
-Everything you need to install, operate and extend Patchli.
-
-</p>
-
-<div class="card">
-
-<h3>Documentation Categories</h3>
-
-<ul>
-
-<li><a href="/documentation/getting-started">📘 Getting Started</a></li>
-
-<li><a href="/documentation/administration">⚙ Administration</a></li>
-
-<li><a href="/documentation/architecture">🏗 Architecture</a></li>
-
-<li><a href="/documentation/troubleshooting">🩺 Troubleshooting</a></li>
-
-<li><a href="/documentation/faq">❓ FAQ</a></li>
-
-<li><a href="/documentation/roadmap">🛣 Roadmap</a></li>
-
-<li><a href="/documentation/release-notes">📝 Release Notes</a></li>
-
-</ul>
-
-</div>
-
-</div>
 
 </body>
 
