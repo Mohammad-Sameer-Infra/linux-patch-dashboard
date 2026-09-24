@@ -1,276 +1,73 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, level %}
 
-<head>
-    <meta charset="UTF-8">
+{% block head %}<meta http-equiv="refresh" content="{{ refresh_seconds }}">{% endblock %}
 
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+{% block nav_extra %}
+    <div class="last-updated">Last Updated: {{ last_updated }}</div>
+{% endblock %}
 
-    <title>{{ product.name }}</title>
+{% block content %}
+    <h2 class="section-title">Infrastructure Overview</h2>
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
-    <meta http-equiv="refresh" content="30">
-
-</head>
-
-<body>
-
-    <div class="navbar">
-
-	    <div class="nav-title">
-        	<strong>{{ product.name }}</strong>
-
-		<div class="product-tagline">
-			{{ product.tagline }}
-		</div>
-    	    </div>
-
-    	    <div class="nav-right">
-
-        	<div class="last-updated">
-            		Last Updated: {{ last_updated }}
-        	</div>
-
-             	<div class="nav-links">
-
-            		<a href="/">Dashboard</a>
-
-            		<a href="/history">History</a>
-
-        	</div>
-
-	    </div>
-
-    </div>
-
-
-    <div class="container">
-	<h2 class="section-title">
- 		Infrastructure Overview
-	</h2>
-
-        <div class="metrics">
-
-            <div class="metric-card">
-                <h3>Total Nodes</h3>
-                <p>{{ total_nodes }}</p>
+    <div class="metrics">
+        <div class="metric-card">
+            <h3>Total Nodes</h3>
+            <p>{{ nodes | length }}</p>
+        </div>
+        <a href="/online" class="metric-link">
+            <div class="metric-card metric-good">
+                <h3>Online Nodes</h3>
+                <p>{{ online_nodes }}</p>
             </div>
-	
-	    <a href="/online" class="metric-link">
-
-            	<div class="metric-card metric-good">
-                	<h3>Online Nodes</h3>
-                	<p>{{ online_nodes }}</p>
-            	</div>
-
-	    </a>
-
-	   <a href="/offline" class="metric-link">
-
-            	<div class="metric-card metric-critical">
-                	<h3>Offline Nodes</h3>
-               		<p>{{ offline_nodes }}</p>
-            	</div>
-
-	   </a>
-
-        </div>
-
-        <div class="card">
-
-            <h2>Dashboard Server</h2>
-
-            <ul>
-                <li>
-                    <strong>Hostname:</strong>
-                    {{ system_info.hostname }}
-                </li>
-
-                <li>
-                    <strong>OS:</strong>
-                    {{ system_info.os_info }}
-                </li>
-
-                <li>
-                    <strong>Kernel:</strong>
-                    {{ system_info.kernel }}
-                </li>
-
-                <li>
-                    <strong>Uptime:</strong>
-                    {{ system_info.uptime }}
-                </li>
-            </ul>
-
-        </div>
-
-        <div class="card">
-
-            <h2>Dashboard Patch Status</h2>
-
-            <p>
-                <strong>Pending Updates:</strong>
-                {{ system_info.updates.count }}
-            </p>
-
-            {% if system_info.updates.count > 0 %}
-
-                <p class="status-warning">
-                    Updates Available
-                </p>
-
-            {% else %}
-
-                <p class="status-ok">
-                    System Fully Updated
-                </p>
-
-            {% endif %}
-
-        </div>
-
-        <div class="card">
-
-            <h2 class="section-title">
-
-	    	Managed Nodes
-	    
-	    </h2>
-	    
-	    <div class="table-toolbar">
-
-    		<input type="text"
-           	       id="nodeSearch"
-                       placeholder="Search by hostname, IP, OS or status"
-                       class="search-box">
-
-	   </div>
-
-            <table>
-
-                <tr>
-                    <th>Hostname</th>
-                    <th>IP</th>
-                    <th>OS</th>
-                    <th>Uptime</th>
-                    <th>Updates</th>
-                    <th>Status</th>
-                    <th>Last Check</th>
-                </tr>
-
-                {% for server in remote_servers %}
-
-                <tr class="node-row searchable-row"
-			onclick="window.location.href='/node/{{ server.hostname }}'">
-                    <td>
-   	 		<a href="/node/{{ server.hostname }}"
-       			   class="node-link">
-
-        	 	    {{ server.hostname }}
-
-    			</a>
-		    </td>
-
-                    <td>{{ server.ip }}</td>
-
-                    <td>{{ server.os }}</td>
-
-                    <td>{{ server.uptime }}</td>
-
-                    <td>
-
-    			{% if server.updates is number 
-				and server.updates == 0 %}
-
-        		     	<span class="badge-good">
-
-            				{{ server.updates }}
-
-        		     	</span>
-
-    			{% elif server.updates is number 
-				and server.updates <= 5 %}
-
-        		     	<span class="badge-warning">
-
-            				{{ server.updates }}
-
-       	 			</span>
-
-    			{% else %}
-
-        			<span class="badge-critical">
-
-            				{{ server.updates }}
-
-        			</span>
-
-    			{% endif %}
-
-		    </td>
-
-                    <td>
-
-                        {% if server.status == "Online" %}
-
-                            <span class="status-online">
-                                {{ server.status }}
-                            </span>
-
-                        {% else %}
-
-                            <span class="status-offline">
-                                {{ server.status }}
-                            </span>
-
-                        {% endif %}
-
-                    </td>
-
-                    <td>{{ server.last_check }}</td>
-
-                </tr>
-
-                {% endfor %}
-
-            </table>
-
-        </div>
-
+        </a>
+        <a href="/offline" class="metric-link">
+            <div class="metric-card metric-critical">
+                <h3>Offline Nodes</h3>
+                <p>{{ offline_nodes }}</p>
+            </div>
+        </a>
     </div>
-<script>
 
-const nodeSearch =
-    document.getElementById("nodeSearch");
+    <div class="card">
+        <h2>Dashboard Server</h2>
+        <ul>
+            <li><strong>Hostname:</strong> {{ system_info.hostname }}</li>
+            <li><strong>OS:</strong> {{ system_info.os_info }}</li>
+            <li><strong>Kernel:</strong> {{ system_info.kernel }}</li>
+            <li><strong>Uptime:</strong> {{ system_info.uptime }}</li>
+        </ul>
+    </div>
 
-nodeSearch.addEventListener("keyup", function() {
+    <div class="card">
+        <h2 class="section-title">Managed Nodes</h2>
+        <div class="table-toolbar">
+            <input type="text" class="search-box" data-rows=".searchable-row"
+                   placeholder="Search by hostname, IP, OS or status">
+        </div>
 
-    const filter =
-        nodeSearch.value.toLowerCase();
-
-    const rows =
-        document.querySelectorAll(".searchable-row");
-
-    rows.forEach(function(row) {
-
-        const text =
-            row.innerText.toLowerCase();
-
-        if (text.includes(filter)) {
-
-            row.style.display = "";
-
-        } else {
-
-            row.style.display = "none";
-        }
-    });
-
-});
-
-</script>
-</body>
-
-</html>
+        <table>
+            <tr>
+                <th>Hostname</th>
+                <th>IP</th>
+                <th>OS</th>
+                <th>Uptime</th>
+                <th>Updates</th>
+                <th>Status</th>
+                <th>Last Check</th>
+            </tr>
+            {% for server in nodes %}
+            <tr class="node-row searchable-row"
+                onclick="window.location.href='/node/{{ server.hostname }}'">
+                <td><a href="/node/{{ server.hostname }}" class="node-link">{{ server.hostname }}</a></td>
+                <td>{{ server.ip }}</td>
+                <td>{{ server.os }}</td>
+                <td>{{ server.uptime }}</td>
+                <td><span class="badge-{{ level(server.updates) }}">{{ server.updates }}</span></td>
+                <td>{{ status_badge(server.status) }}</td>
+                <td>{{ server.last_check }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+{% endblock %}

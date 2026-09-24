@@ -1,299 +1,138 @@
-from flask import (
-    render_template,
-    request,
-    jsonify,
-    Response
-)
-from app import app
-from app.system_info import get_system_info
-from app.inventory import load_servers
-from app.remote_info import get_remote_system_info
-from app.discovery import discover_hosts
-from app.database import get_telemetry_history
-from app.token_manager import generate_token
-from app.registration import register_node
-from app.config import SETTINGS
+"""Dashboard pages, read from the telemetry database, and the registration API."""
+
+import platform
+import socket
+import subprocess
+
+from flask import Response, abort, jsonify, render_template, request
+
+from app import app, store
+
+NOT_COLLECTED = {
+    "os": "", "uptime": "", "updates": 0, "kernel_updates": 0,
+    "security_updates": 0, "critical_packages": 0, "status": "Pending",
+    "last_check": "Never", "last_seen": None, "packages": [],
+}
+
+# URL segment: (page title, package flag to filter on)
+CATEGORIES = {
+    "all-updates": ("All Updates", None),
+    "kernel-updates": ("Kernel Updates", "kernel"),
+    "security-updates": ("Security Updates", "security"),
+    "critical-packages": ("Critical Packages", "critical"),
+}
+
+
+def get_nodes():
+    """Every inventory node merged with its latest snapshot."""
+    latest = store.latest_snapshots()
+    return [
+        {**NOT_COLLECTED, **latest.get(server["hostname"], {}), **server}
+        for server in store.load_servers()
+    ]
+
+
+def find_node(hostname):
+    for node in get_nodes():
+        if node["hostname"] == hostname:
+            return node
+    abort(404)
+
+
+def dashboard_server():
+    try:
+        os_info = platform.freedesktop_os_release()["PRETTY_NAME"]
+    except (OSError, KeyError):
+        os_info = platform.platform()
+    try:
+        with open("/proc/uptime") as f:
+            seconds = int(float(f.read().split()[0]))
+        uptime = f"up {seconds // 86400} days, {seconds % 86400 // 3600} hours"
+    except OSError:
+        uptime = "Unknown"
+    return {
+        "hostname": socket.gethostname(),
+        "os_info": os_info,
+        "kernel": platform.release(),
+        "uptime": uptime,
+    }
+
+
+def key_fingerprint():
+    try:
+        output = subprocess.run(
+            ["ssh-keygen", "-lf", store.SETTINGS["public_key_file"]],
+            capture_output=True, text=True,
+        ).stdout.split()
+    except OSError:
+        output = []
+    return output[1] if len(output) > 1 else "unavailable"
+
 
 @app.route("/")
 def home():
-
-    local_system = get_system_info()
-
-    servers = load_servers()
-
-    remote_servers = []
-
-    for server in servers:
-
-        remote_data = get_remote_system_info(server)
-
-        remote_servers.append(remote_data)
-
-    total_nodes = len(remote_servers)
-
-    online_nodes = len([
-        s for s in remote_servers
-        if s["status"] == "Online"
-    ])
-
-    offline_nodes = len([
-        s for s in remote_servers
-        if s["status"] == "Offline"
-    ])
-
-    total_updates = sum([
-        int(s["updates"])
-        for s in remote_servers
-        if str(s["updates"]).isdigit()
-    ])
-
-    last_updated = remote_servers[0]["last_check"] \
-        if remote_servers else "No Data"
-
+    nodes = get_nodes()
+    checks = [n["last_check"] for n in nodes if n["last_check"] != "Never"]
     return render_template(
         "index.html",
-        system_info=local_system,
-        remote_servers=remote_servers,
-        total_nodes=total_nodes,
-        online_nodes=online_nodes,
-        offline_nodes=offline_nodes,
-        total_updates=total_updates,
-        last_updated=last_updated
+        nodes=nodes,
+        system_info=dashboard_server(),
+        online_nodes=sum(n["status"] == "Online" for n in nodes),
+        offline_nodes=sum(n["status"] == "Offline" for n in nodes),
+        last_updated=max(checks, default="No Data"),
     )
+
+
+@app.route("/online")
+@app.route("/offline")
+def nodes_by_status():
+    status = request.path.strip("/").capitalize()
+    return render_template(
+        "nodes.html",
+        title=f"{status} Nodes",
+        nodes=[n for n in get_nodes() if n["status"] == status],
+    )
+
 
 @app.route("/history")
 def history():
+    return render_template("history.html", telemetry_history=store.telemetry_history())
 
-    telemetry_history = get_telemetry_history()
-
-    return render_template(
-        "history.html",
-        telemetry_history=telemetry_history
-    )
-
-@app.route("/online")
-def online_nodes():
-
-    servers = load_servers()
-
-    online_servers = []
-
-    for server in servers:
-
-        remote_data = get_remote_system_info(server)
-
-        if remote_data["status"] == "Online":
-
-            online_servers.append(remote_data)
-
-    return render_template(
-        "online.html",
-        servers=online_servers
-    )
-
-@app.route("/offline")
-def offline_nodes_page():
-
-    servers = load_servers()
-
-    offline_servers = []
-
-    for server in servers:
-
-        remote_data = get_remote_system_info(server)
-
-        if remote_data["status"] == "Offline":
-
-            offline_servers.append(remote_data)
-
-    return render_template(
-        "offline.html",
-        servers=offline_servers
-    )
 
 @app.route("/node/<hostname>")
 def node_details(hostname):
+    return render_template("node_details.html", server=find_node(hostname))
 
-    servers = load_servers()
 
-    for server in servers:
-
-        remote_data = get_remote_system_info(server)
-        if remote_data["hostname"] == hostname:
-
-            remote_data["node_id"] = server["node_id"]
-
-            remote_data["state"] = server["state"]
-
-            remote_data["registered_at"] = (
-                server["registered_at"]
-            )
-
-            remote_data["last_seen"] = (
-                server.get("last_seen")
-            )
-
-            if remote_data["status"] == "Offline":
-
-                return render_template(
-                    "offline.html",
-                    servers=[remote_data]
-                )
-
-            return render_template(
-                "node_details.html",
-                server=remote_data
-            )
-
-    return "Node Not Found", 404
-
-@app.route("/node/<hostname>/all-updates")
-def all_updates(hostname):
-
-    servers = load_servers()
-
-    for server in servers:
-
-        remote_data = get_remote_system_info(server)
-
-        if remote_data["hostname"] == hostname:
-
-            return render_template(
-                "package_details.html",
-                hostname=hostname,
-                title="All Updates",
-                packages=remote_data["update_packages"]
-            )
-
-    return "Node Not Found", 404
-
-@app.route("/node/<hostname>/kernel-updates")
-def kernel_updates(hostname):
-
-    servers = load_servers()
-
-    for server in servers:
-
-        remote_data = get_remote_system_info(server)
-
-        if remote_data["hostname"] == hostname:
-
-            kernel_packages = [
-                p for p in remote_data["update_packages"]
-                if "linux-image" in p
-                or "linux-headers" in p
-            ]
-
-            return render_template(
-                "package_details.html",
-                hostname=hostname,
-                title="Kernel Updates",
-                packages=kernel_packages
-            )
-
-    return "Node Not Found", 404
-
-@app.route("/node/<hostname>/security-updates")
-def security_updates(hostname):
-
-    servers = load_servers()
-
-    for server in servers:
-
-        remote_data = get_remote_system_info(server)
-
-        if remote_data["hostname"] == hostname:
-
-            security_packages = [
-                p for p in remote_data["update_packages"]
-                if any(keyword in p.lower() for keyword in [
-                    "openssl",
-                    "sudo",
-                    "systemd",
-                    "curl",
-                    "bash",
-                    "ssh"
-                ])
-            ]
-
-            return render_template(
-                "package_details.html",
-                hostname=hostname,
-                title="Security Packages",
-                packages=security_packages
-            )
-
-    return "Node Not Found", 404
-
-@app.route("/node/<hostname>/critical-packages")
-def critical_packages(hostname):
-
-    servers = load_servers()
-
-    for server in servers:
-
-        remote_data = get_remote_system_info(server)
-
-        if remote_data["hostname"] == hostname:
-
-            critical_packages = [
-                p for p in remote_data["update_packages"]
-                if any(keyword in p.lower() for keyword in [
-                    "linux",
-                    "openssl",
-                    "systemd",
-                    "sudo"
-                ])
-            ]
-
-            return render_template(
-                "package_details.html",
-                hostname=hostname,
-                title="Critical Packages",
-                packages=critical_packages
-            )
-
-    return "Node Not Found", 404
-
-@app.route("/discovery")
-def discovery():
-
-    discovered_hosts = discover_hosts()
-
+@app.route("/node/<hostname>/<category>")
+def package_details(hostname, category):
+    if category not in CATEGORIES:
+        abort(404)
+    title, flag = CATEGORIES[category]
+    node = find_node(hostname)
+    packages = [p["line"] for p in node["packages"] if flag is None or p[flag]]
     return render_template(
-        "discovery.html",
-        discovered_hosts=discovered_hosts
+        "package_details.html", hostname=hostname, title=title, packages=packages,
     )
+
 
 @app.route("/generate-token")
 def generate_registration_token():
-
-    token = generate_token()
-
     return render_template(
-        "token.html",
-        token=token
+        "token.html", token=store.create_token(), fingerprint=key_fingerprint(),
     )
+
 
 @app.route("/api/register", methods=["POST"])
 def api_register():
+    try:
+        success, message = store.register_node(request.get_json(silent=True) or {})
+    except ValueError as error:
+        success, message = False, str(error)
+    return jsonify(success=success, message=message), 200 if success else 400
 
-    data = request.json
-
-    result = register_node(data)
-
-    return jsonify(result)
 
 @app.route("/public-key")
 def public_key():
-
-    with open(
-        SETTINGS["public_key_file"]
-    ) as f:
-
-        key = f.read()
-
-    return Response(
-        key,
-        mimetype="text/plain"
-    )
+    with open(store.SETTINGS["public_key_file"]) as f:
+        return Response(f.read(), mimetype="text/plain")

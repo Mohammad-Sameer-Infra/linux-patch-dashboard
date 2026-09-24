@@ -1,67 +1,17 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
+{% block title %}Registration Token{% endblock %}
+{% block tagline %}Node Enrollment{% endblock %}
 
-    <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    <title>Registration Token</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
-
-</head>
-
-<body>
-
-    <div class="navbar">
-
-        <div class="nav-title">
-            Node Enrollment
-        </div>
-
-        <div class="nav-links">
-
-            <a href="/">Dashboard</a>
-
-            <a href="/history">History</a>
-
-            <a href="/discovery">Discovery</a>
-
-        </div>
-
+{% block content %}
+    <h2 class="section-title">Registration Token</h2>
+    <div class="card">
+        <p>Use this one-time token to register a Linux node with the dashboard.</p>
+        <div class="token-box">{{ token }}</div>
+        <p>
+            <code>register-node.sh</code> shows the dashboard's SSH key fingerprint before trusting it.
+            Continue only if it matches:
+        </p>
+        <div class="token-box">{{ fingerprint }}</div>
     </div>
-
-    <div class="container">
-
-        <h2 class="section-title">
-
-            Registration Token
-
-        </h2>
-
-        <div class="card">
-
-            <p>
-
-                Use this token to securely register
-                a Linux node with the dashboard.
-
-            </p>
-
-            <div class="token-box">
-
-                {{ token }}
-
-            </div>
-
-        </div>
-
-    </div>
-
-</body>
-
-</html>
+{% endblock %}

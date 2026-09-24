@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name }} Documentation{% endblock %}
+{% block tagline %}Documentation{% endblock %}
+
+{% block content %}
+    <h2 class="section-title">Documentation Center</h2>
+
+    <div class="card">
+        <h2>{{ product.name }}</h2>
+        <p><strong>{{ product.tagline }}</strong></p>
+        <p>
+            Welcome to the {{ product.name }} Documentation Center. Here you will find
+            everything required to install, configure, administer and extend {{ product.name }}.
+        </p>
+        <p>
+            <strong>Edition:</strong> {{ product.edition }}<br>
+            <strong>Version:</strong> {{ product.version }}<br>
+            <strong>Codename:</strong> {{ product.codename }}
+        </p>
+    </div>
+
+    <div class="card">
+        <h2>Documentation Categories</h2>
+        <table>
+            <tr><th>Category</th><th>Description</th></tr>
+            {% for slug, (icon, title, _, description) in docs.items() %}
+            <tr>
+                <td><a href="/documentation/{{ slug }}">{{ icon }} {{ title }}</a></td>
+                <td>{{ description }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Product Information</h2>
+        <ul>
+            <li><strong>Maintainer:</strong> {{ product.maintainer }}</li>
+            <li><strong>License:</strong> {{ product.license }}</li>
+            <li><strong>GitHub:</strong> <a href="{{ product.github }}" target="_blank" rel="noopener">{{ product.github }}</a></li>
+        </ul>
+    </div>
+{% endblock %}

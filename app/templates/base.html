@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ product.name }}{% endblock %}</title>
+    {% block head %}{% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-title">
+            <strong>{{ product.name }}</strong>
+            <div class="product-tagline">{% block tagline %}{{ product.tagline }}{% endblock %}</div>
+        </div>
+        <div class="nav-right">
+            {% block nav_extra %}{% endblock %}
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/history">History</a>
+                <a href="/generate-token">Add Node</a>
+                <a href="/documentation/">Documentation</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        // Hide rows that don't match the text typed into a .search-box.
+        // data-rows on the box is the CSS selector for the rows to filter.
+        document.querySelectorAll(".search-box").forEach(function (box) {
+            box.addEventListener("input", function () {
+                const filter = box.value.toLowerCase();
+                document.querySelectorAll(box.dataset.rows).forEach(function (row) {
+                    row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
+                });
+            });
+        });
+    </script>
+</body>
+</html>

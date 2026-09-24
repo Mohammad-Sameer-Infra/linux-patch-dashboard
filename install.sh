@@ -1,531 +1,152 @@
 #!/bin/bash
-
-set -e
+# Install or repair the Linux Patch Dashboard:   sudo ./install.sh
+# Check an existing installation (no changes):    ./install.sh --check
+# Safe to re-run: never overwrites SSH keys, settings or telemetry data.
+set -euo pipefail
 
 SERVICE_USER="patchdashboard"
-SERVICE_HOME="/var/lib/patchdashboard"
-SSH_DIR="${SERVICE_HOME}/.ssh"
-PRIVATE_KEY="${SSH_DIR}/id_ed25519"
-PUBLIC_KEY="${PRIVATE_KEY}.pub"
-RECOMMENDED_INSTALL_DIR="/opt/linux-patch-dashboard"
+DATA_DIR="/var/lib/patchdashboard"
+PUBLIC_KEY="$DATA_DIR/.ssh/id_ed25519.pub"
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_INSTALL_DIR="$RECOMMENDED_INSTALL_DIR"
-VENV_DIR="${APP_INSTALL_DIR}/venv"
-SERVICE_FILE="/etc/systemd/system/linux-patch-dashboard.service"
+VENV_DIR="$INSTALL_DIR/venv"
+SETTINGS="$INSTALL_DIR/config/settings.json"
+SERVICE="linux-patch-dashboard"
+SERVICE_FILE="/etc/systemd/system/$SERVICE.service"
 
-print_header() {
+pass() { echo "[PASS] $1"; }
+fail() { echo "[FAIL] $1"; exit 1; }
 
-echo
-echo "====================================="
-echo " Linux Patch Dashboard Installer"
-echo "====================================="
-echo
-
+# Read a key from settings.json (empty if missing).
+setting() {
+    python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sys.argv[2], ""))' \
+        "$SETTINGS" "$1" 2>/dev/null || true
 }
 
-print_step() {
+check() {
+    local problems=0
+    warn() { echo "[WARN] $1"; problems=1; }
 
-echo
-echo "====================================="
-echo "$1"
-echo "====================================="
-echo
-
-}
-
-print_pass() {
-
-echo "[PASS] $1"
-
-}
-
-print_warn() {
-
-echo "[WARN] $1"
-
-}
-
-print_fail() {
-
-echo "[FAIL] $1"
-
-}
-
-print_header
-
-#
-# Root Validation
-#
-
-print_step "[1/15] Root Validation"
-
-if [ "$(id -u)" -ne 0 ]
-then
-
-    print_fail \
-    "install.sh must be run as root or with sudo."
-
-    exit 1
-
-fi
-
-print_pass "Running with root privileges"
-
-#
-# Prerequisite Validation
-#
-
-print_step "[2/15] Prerequisite Validation"
-
-REQUIRED_COMMANDS=(
-    git
-    python3
-    sqlite3
-    ssh-keygen
-    systemctl
-)
-
-for CMD in "${REQUIRED_COMMANDS[@]}"
-do
-
-    if command -v "$CMD" >/dev/null 2>&1
-    then
-
-        print_pass "$CMD installed"
-
+    [ -x "$VENV_DIR/bin/python" ] && "$VENV_DIR/bin/python" -c \
+        'import sys; sys.exit(sys.version_info < (3, 11))' \
+        && pass "Virtual environment uses Python 3.11+" || warn "Virtual environment missing or Python < 3.11"
+    if [ -f "$SETTINGS" ]; then
+        pass "settings.json exists"
+        [[ "$(setting dashboard_url)" != *YOUR_SERVER_IP* ]] && pass "Dashboard URL configured" || warn "Dashboard URL is still a placeholder"
+        [ -n "$(setting admin_password_hash)" ] && pass "Admin password set" || warn "No admin password (run: venv/bin/python run.py set-password)"
+        [ -f "$(setting public_key_file)" ] && pass "Dashboard public key found" || warn "Public key not found: $(setting public_key_file)"
     else
-
-        print_fail "$CMD not found"
-
-        echo
-        echo "Please install the required OS packages"
-        echo "before running install.sh."
-        echo
-        exit 1
-
+        warn "settings.json missing"
     fi
+    systemctl is-active --quiet "$SERVICE" && pass "$SERVICE is running" || warn "$SERVICE is not running"
 
+    [ "$problems" -eq 0 ] && echo "System ready." || echo "Action required, see warnings above."
+    return "$problems"
+}
+
+if [ "${1:-}" = "--check" ]; then
+    check
+    exit
+fi
+
+[ "$(id -u)" -eq 0 ] || fail "Run install.sh as root or with sudo."
+
+echo "== Prerequisites"
+for cmd in python3 ssh ssh-keygen systemctl; do
+    command -v "$cmd" >/dev/null || fail "$cmd not found. Install the OS packages listed in the README first."
 done
-
-#
-# Python Detection
-#
-
-print_step "[3/15] Python Runtime Detection"
-
-PYTHON_CMD=""
-
-for CANDIDATE in \
-    python3.13 \
-    python3.12 \
-    python3.11 \
-    python3
-do
-
-    if command -v "$CANDIDATE" >/dev/null 2>&1
-    then
-
-        if "$CANDIDATE" -c \
-        'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)'
-        then
-
-            PYTHON_CMD=$(command -v "$CANDIDATE")
-
-            break
-
-        fi
-
+PYTHON=""
+for candidate in python3.13 python3.12 python3.11 python3; do
+    if command -v "$candidate" >/dev/null &&
+       "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
+        PYTHON=$(command -v "$candidate")
+        break
     fi
-
 done
+[ -n "$PYTHON" ] || fail "Python 3.11 or newer is required."
+pass "Using $PYTHON"
 
-if [ -z "$PYTHON_CMD" ]
-then
+echo "== Service account and SSH key"
+if ! getent passwd "$SERVICE_USER" >/dev/null; then
+    useradd --system --home-dir "$DATA_DIR" --create-home --shell /sbin/nologin "$SERVICE_USER"
+fi
+install -d -m 700 -o "$SERVICE_USER" -g "$SERVICE_USER" "$DATA_DIR" "$DATA_DIR/.ssh"
+if [ ! -f "$PUBLIC_KEY" ]; then
+    runuser -u "$SERVICE_USER" -- ssh-keygen -q -t ed25519 -N "" -f "${PUBLIC_KEY%.pub}"
+fi
+pass "Account $SERVICE_USER, key $PUBLIC_KEY"
 
-    print_fail \
-    "No supported Python interpreter found."
-
-    echo
-    echo "Python 3.11 or newer is required."
-    echo
-
-    exit 1
-
+echo "== Settings"
+[ -f "$SETTINGS" ] || cp "$INSTALL_DIR/config/settings.example.json" "$SETTINGS"
+DASHBOARD_URL=$(setting dashboard_url)
+if [ -z "$DASHBOARD_URL" ] || [[ "$DASHBOARD_URL" == *YOUR_SERVER_IP* ]]; then
+    DEFAULT_URL="http://$(hostname -I | awk '{print $1}'):5000"
+    read -rp "Dashboard URL [$DEFAULT_URL]: " DASHBOARD_URL
+    DASHBOARD_URL="${DASHBOARD_URL:-$DEFAULT_URL}"
 fi
 
-PYTHON_VERSION=$(
-"$PYTHON_CMD" -c \
-'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")'
-)
-
-print_pass "Selected interpreter: $PYTHON_CMD"
-print_pass "Python version: $PYTHON_VERSION"
-
-#
-# Service Account Validation
-#
-
-print_step "[4/15] Dashboard Service Account"
-
-if getent passwd "$SERVICE_USER" >/dev/null 2>&1
-then
-
-    print_pass \
-    "Service account already exists: $SERVICE_USER"
-
-else
-
-    useradd \
-        --system \
-        --home-dir "$SERVICE_HOME" \
-        --create-home \
-        --shell /sbin/nologin \
-        "$SERVICE_USER"
-
-    print_pass \
-    "Created service account: $SERVICE_USER"
-
-fi
-
-#
-# Installation Directory
-#
-
-print_step "[5/15] Installation Directory"
-
-CURRENT_DIR="$INSTALL_DIR"
-
-if [ "$CURRENT_DIR" = "$RECOMMENDED_INSTALL_DIR" ]
-then
-
-    print_pass \
-    "Using recommended installation path"
-
-else
-
-    print_warn \
-    "Recommended installation path:"
-
-    echo "       $RECOMMENDED_INSTALL_DIR"
-    echo
-    echo "Current location:"
-    echo "       $CURRENT_DIR"
-
-fi
-
-#
-# Dashboard SSH Key
-#
-
-print_step "[6/15] Dashboard SSH Key"
-
-if [ ! -d "$SSH_DIR" ]
-then
-
-    mkdir -p "$SSH_DIR"
-
-    print_pass "Created SSH directory"
-
-else
-
-    print_pass "SSH directory already exists"
-
-fi
-
-chown "$SERVICE_USER:$SERVICE_USER" "$SSH_DIR"
-
-chmod 700 "$SSH_DIR"
-
-if [ -f "$PRIVATE_KEY" ] && [ -f "$PUBLIC_KEY" ]
-then
-
-    print_pass "Dashboard SSH key already exists"
-
-else
-
-    runuser -u "$SERVICE_USER" -- ssh-keygen \
-            -t ed25519 \
-            -N "" \
-            -f "$PRIVATE_KEY"
-    print_pass "Generated dashboard SSH key"
-
-fi
-
-#
-# Dashboard Configuration
-#
-
-print_step "[7/15] Dashboard Configuration"
-
-SETTINGS_FILE="${INSTALL_DIR}/config/settings.json"
-SETTINGS_EXAMPLE="${INSTALL_DIR}/config/settings.example.json"
-
-if [ ! -f "$SETTINGS_EXAMPLE" ]
-then
-
-    print_fail "settings.example.json not found"
-
-    exit 1
-
-fi
-
-if [ ! -f "$SETTINGS_FILE" ]
-then
-
-    cp "$SETTINGS_EXAMPLE" "$SETTINGS_FILE"
-
-    print_pass "Created settings.json"
-
-else
-
-    print_pass "settings.json already exists"
-
-fi
-
-#
-# Dashboard URL Configuration
-#
-
-print_step "[8/15] Dashboard URL Configuration"
-
-DEFAULT_IP=$(hostname -I | awk '{print $1}')
-DEFAULT_URL="http://${DEFAULT_IP}:5000"
-
-CURRENT_URL=$(
-"$PYTHON_CMD" -c "
-import json
-with open('$SETTINGS_FILE') as f:
-    data=json.load(f)
-print(data.get('dashboard_url',''))
-"
-)
-
-if [ -z "$CURRENT_URL" ] || \
-   [ "$CURRENT_URL" = "http://YOUR_SERVER_IP:5000" ]
-then
-
-    echo
-    read -rp \
-    "Dashboard URL [$DEFAULT_URL]: " USER_URL
-
-    DASHBOARD_URL="${USER_URL:-$DEFAULT_URL}"
-
-else
-
-    echo
-    echo "Current Dashboard URL:"
-    echo "$CURRENT_URL"
-    echo
-
-    read -rp \
-    "Update dashboard URL? [y/N]: " UPDATE_URL
-
-    if [[ "$UPDATE_URL" =~ ^[Yy]$ ]]
-    then
-
-        read -rp \
-        "Dashboard URL [$CURRENT_URL]: " USER_URL
-
-        DASHBOARD_URL="${USER_URL:-$CURRENT_URL}"
-
-    else
-
-        DASHBOARD_URL="$CURRENT_URL"
-
+# Older versions kept data files in the source tree; copy them over once.
+OLD_INVENTORY=$(setting inventory_file)
+OLD_TOKENS=$(setting token_file)
+for pair in "${OLD_INVENTORY:-inventory/servers.json}:servers.json" \
+            "${OLD_TOKENS:-security/registration_tokens.json}:registration_tokens.json" \
+            "telemetry.db:telemetry.db"; do
+    src="$INSTALL_DIR/${pair%%:*}"
+    dest="$DATA_DIR/${pair##*:}"
+    if [ -f "$src" ] && [ ! -f "$dest" ]; then
+        cp "$src" "$dest"
+        pass "Copied $src to $dest"
     fi
+done
+chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 
-fi
-
-"$PYTHON_CMD" <<EOF
-import json
-
-settings_file = "$SETTINGS_FILE"
-
-with open(settings_file) as f:
-    data = json.load(f)
-
-data["dashboard_url"] = "$DASHBOARD_URL"
-data["public_key_file"] = "$PUBLIC_KEY"
-
-with open(settings_file, "w") as f:
-    json.dump(data, f, indent=4)
-
+URL="$DASHBOARD_URL" KEY="$PUBLIC_KEY" DATA="$DATA_DIR" "$PYTHON" - "$SETTINGS" <<'EOF'
+import json, os, sys
+path = sys.argv[1]
+settings = json.load(open(path))
+for old in ("inventory_file", "token_file"):
+    settings.pop(old, None)
+settings.update(dashboard_url=os.environ["URL"], public_key_file=os.environ["KEY"], data_dir=os.environ["DATA"])
+json.dump(settings, open(path, "w"), indent=4)
 EOF
+pass "Updated $SETTINGS"
 
-print_pass "Updated settings.json"
+echo "== Python environment"
+[ -d "$VENV_DIR" ] || "$PYTHON" -m venv "$VENV_DIR"
+"$VENV_DIR/bin/pip" install -q -r "$INSTALL_DIR/requirements.txt"
+pass "Dependencies installed in $VENV_DIR"
 
-#
-# Python Virtual Environment
-#
-
-print_step "[9/15] Python Virtual Environment"
-
-if [ -d "$VENV_DIR" ]
-then
-
-    print_pass "Virtual environment already exists"
-
-else
-
-    runuser -u "$SERVICE_USER" -- \
-        "$PYTHON_CMD" -m venv "$VENV_DIR"
-
-    print_pass "Created virtual environment"
-
+if [ -z "$(setting admin_password_hash)" ]; then
+    echo "Set the password for logging in to the dashboard (user: admin)."
+    "$VENV_DIR/bin/python" "$INSTALL_DIR/run.py" set-password
 fi
+# The settings hold the password hash: readable by the service, not by everyone.
+chown "root:$SERVICE_USER" "$SETTINGS"
+chmod 640 "$SETTINGS"
 
-
-chown -R "$SERVICE_USER:$SERVICE_USER" "$VENV_DIR"
-
-#
-# Python Dependency Installation
-#
-
-print_step "[10/15] Python Dependency Installation"
-
-REQUIREMENTS_FILE="${INSTALL_DIR}/requirements.txt"
-
-if [ ! -f "$REQUIREMENTS_FILE" ]
-then
-
-    print_fail "requirements.txt not found"
-
-    exit 1
-
-fi
-
-runuser -u "$SERVICE_USER" -- \
-    "$VENV_DIR/bin/pip" install \
-    -r "$REQUIREMENTS_FILE"
-
-print_pass "Installed Python dependencies"
-
-#
-# Runtime Ownership
-#
-
-print_step "[11/15] Runtime Ownership"
-
-chown -R "$SERVICE_USER:$SERVICE_USER" \
-    "$SERVICE_HOME"
-
-chown -R "$SERVICE_USER:$SERVICE_USER" \
-    "$VENV_DIR"
-
-print_pass "Runtime ownership verified"
-
-#
-# Systemd Service Creation
-#
-
-print_step "[12/15] Systemd Service Creation"
-
-if [ -f "$SERVICE_FILE" ]
-then
-
-    cp "$SERVICE_FILE" \
-       "${SERVICE_FILE}.bak"
-
-    print_pass "Backed up existing service file"
-
-fi
-
+echo "== Systemd service"
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=Linux Patch Dashboard
 After=network.target
 
 [Service]
-Type=simple
-
 User=$SERVICE_USER
 Group=$SERVICE_USER
-
 WorkingDirectory=$INSTALL_DIR
-
 ExecStart=$VENV_DIR/bin/python $INSTALL_DIR/run.py
-
 Restart=always
 RestartSec=5
-
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
 EOF
-
-systemd-analyze verify "$SERVICE_FILE"
-
-print_pass "Created systemd service"
-#
-# Service Enablement
-#
-
-print_step "[13/15] Service Enablement"
-
 systemctl daemon-reload
+systemctl enable --quiet "$SERVICE"
+systemctl restart "$SERVICE"
+sleep 2
 
-systemctl enable linux-patch-dashboard
-
-systemctl restart linux-patch-dashboard
-
-print_pass "Service enabled and restarted"
-
-#
-# Service Validation
-#
-
-print_step "[14/15] Service Validation"
-
-SERVICE_STATUS=$(
-systemctl is-active linux-patch-dashboard
-)
-
-if [ "$SERVICE_STATUS" = "active" ]
-then
-
-    print_pass "Dashboard service is running"
-
-else
-
-    print_fail "Dashboard service failed to start"
-
-    systemctl status \
-        linux-patch-dashboard \
-        --no-pager
-
-    exit 1
-
-fi
-
-#
-# Bootstrap Validation
-#
-
-print_step "[15/15] Bootstrap Validation"
-
-if bash "$INSTALL_DIR/bootstrap.sh"
-then
-
-    print_pass "Bootstrap validation completed"
-
-else
-
-    print_warn "Bootstrap validation reported issues"
-
-fi
-
+echo "== Check"
+check || true
 echo
-echo "====================================="
-echo " Installation Summary"
-echo "====================================="
-echo
-echo "Service Account : $SERVICE_USER"
-echo "Installation Dir: $CURRENT_DIR"
-echo "Python Runtime  : $PYTHON_CMD"
-echo "Dashboard URL   : $DASHBOARD_URL"
-echo "Public Key File : $PUBLIC_KEY"
-echo "Service Status  : $SERVICE_STATUS"
-echo
-echo "Installer completed successfully."
-echo
+echo "Dashboard: $DASHBOARD_URL"

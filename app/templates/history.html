@@ -1,116 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge %}
 
-<head>
+{% block title %}{{ product.name }} - History{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="{{ refresh_seconds }}">{% endblock %}
+{% block tagline %}Telemetry History{% endblock %}
 
-    <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    <title>{{ product.name }} - History</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
-   
-</head>
-    <meta http-equiv="refresh" content="30">
-
-</head>
-
-<body>
-
-    <div class="navbar">
-
-    	<div class="nav-title">
-        	<strong>{{ product.name }}</strong>
-
-		<div class="product-tagline">
-
-			 Telemetry History
-
-		</div>
-    	</div>
-
-    	<div class="nav-links">
-
-        	<a href="/">Dashboard</a>
-
-        	<a href="/history">History</a>
-
-    	</div>
-
+{% block content %}
+    <div class="card">
+        <h2>Historical Telemetry</h2>
+        <table>
+            <tr>
+                <th>Hostname</th>
+                <th>IP</th>
+                <th>OS</th>
+                <th>Uptime</th>
+                <th>Total Updates</th>
+                <th>Kernel</th>
+                <th>Security</th>
+                <th>Critical</th>
+                <th>Status</th>
+                <th>Last Check</th>
+            </tr>
+            {% for row in telemetry_history %}
+            <tr>
+                <td>{{ row.hostname }}</td>
+                <td>{{ row.ip }}</td>
+                <td>{{ row.os }}</td>
+                <td>{{ row.uptime }}</td>
+                <td>{{ row.updates }}</td>
+                <td>{{ row.kernel_updates }}</td>
+                <td>{{ row.security_updates }}</td>
+                <td>{{ row.critical_packages }}</td>
+                <td>{{ status_badge(row.status) }}</td>
+                <td>{{ row.last_check }}</td>
+            </tr>
+            {% endfor %}
+        </table>
     </div>
-
-    <div class="container">
-
-        <div class="card">
-
-            <h2>Historical Telemetry</h2>
-
-            <table>
-
-                <tr>
-                    <th>Hostname</th>
-                    <th>IP</th>
-                    <th>OS</th>
-                    <th>Uptime</th>
-                    <th>Total Updates</th>
-		    <th>Kernel</th>
-		    <th>Security</th>
-		    <th>Critical</th>
-                    <th>Status</th>
-                    <th>Last Check</th>
-                </tr>
-
-                {% for row in telemetry_history %}
-
-                <tr>
-
-                    <td>{{ row.hostname }}</td>
-
-                    <td>{{ row.ip }}</td>
-
-                    <td>{{ row.os }}</td>
-
-                    <td>{{ row.uptime }}</td>
-
-                    <td>{{ row.updates }}</td>
-
-		    <td>{{ row.kernel_updates }}</td>
-
-		    <td>{{ row.security_updates }}</td>
-
-		    <td>{{ row.critical_packages }}</td>
-
-                    <td>
-			    {% if row.status == "Online" %}
-			    	
-			    	<span class="status-online">
-					{{ row.status }}
-				</span>
-
-			    {% else %}
-
-			    	<span class="status-offline">
-					{{ row.status }}
-				</span>
-
-			     {% endif %}
-		    </td>
-
-                    <td>{{ row.last_check }}</td>
-
-                </tr>
-
-                {% endfor %}
-
-            </table>
-
-        </div>
-
-    </div>
-
-</body>
-
-</html>
+{% endblock %}

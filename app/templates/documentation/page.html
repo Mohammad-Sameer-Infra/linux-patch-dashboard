@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block tagline %}Documentation{% endblock %}
+
+{% block content %}
+    <div class="card">
+        {# Rendered from the Markdown files shipped in docs/, not user input. #}
+        {{ content | safe }}
+    </div>
+{% endblock %}
