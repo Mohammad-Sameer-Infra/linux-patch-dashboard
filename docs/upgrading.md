@@ -2,21 +2,36 @@
 
 ## Upgrading
 
+Optionally, take a backup first. It takes a second, and upgrades don't touch your data, but it costs nothing:
+
+```bash
+sudo tar -czf /root/patchli-backup-$(date +%F).tar.gz /var/lib/patchdashboard /opt/linux-patch-dashboard/config/settings.json
+```
+
+Then upgrade:
+
 ```bash
 cd /opt/linux-patch-dashboard
 sudo git pull
 sudo ./install.sh
 ```
 
-The installer updates the Python dependencies, rewrites the service file and restarts the service. Your nodes, history, SSH key and settings are kept.
+The installer updates the Python dependencies, rewrites the service file and restarts the service. The dashboard is unavailable for a few seconds while it restarts. The installer's output includes a line such as `[PASS] Data in /var/lib/patchdashboard: 12 registered node(s)`, so you can confirm your nodes are still there.
 
-For releases that only change the web interface, restarting is enough:
+### What an upgrade keeps
 
-```bash
-sudo systemctl restart linux-patch-dashboard
-```
+Registered nodes keep working through an upgrade without re-registering. Specifically:
 
-Running the full installer is always safe, so use it when in doubt.
+| Kept | Why it's safe |
+| --- | --- |
+| **Registered nodes, tokens and history** | They live in `/var/lib/patchdashboard`, outside the Git repository, so `git pull` never touches them. The installer only copies data from older versions when the destination is empty, and never overwrites existing files. |
+| **The dashboard's SSH key** | Generated only if it doesn't exist. Nodes keep trusting the dashboard, so no re-registration is needed. |
+| **Known host keys** | Kept in `/var/lib/patchdashboard/.ssh/known_hosts`. |
+| **Settings and admin password** | `settings.json` is updated in place; the password is only asked for if none is set. The file is rewritten safely (temp file, then rename), so an interrupted upgrade can't leave it half-written. |
+| **A custom data folder** | If `data_dir` points somewhere other than the default, the installer keeps it. |
+| **The history database** | New versions only add columns when needed; rows are never deleted. |
+
+Always run the installer after `git pull`, even for small releases. Besides updating dependencies, it re-applies file permissions, which matters on servers with a strict `umask`. There, files added by `git pull` are readable only by root until the installer runs. The installer is safe to run as often as you like.
 
 ### If `git pull` refuses to update
 
