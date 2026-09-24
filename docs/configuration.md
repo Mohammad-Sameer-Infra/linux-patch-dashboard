@@ -47,6 +47,8 @@ The folder holding the runtime data:
 
 A relative path is resolved against the installation folder. The service account must be able to write to this folder.
 
+To use another folder, set an absolute path here and re-run `sudo ./install.sh`. The installer keeps an absolute `data_dir` on every run and sets its ownership. Move any existing files into the new folder yourself; the installer only migrates data from older versions and from a relative `data_dir`.
+
 **Default:** `/var/lib/patchdashboard` (installer); `data` inside the installation folder when running without the installer.
 
 ### `public_key_file`

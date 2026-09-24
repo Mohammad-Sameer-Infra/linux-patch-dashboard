@@ -5,8 +5,9 @@
 set -euo pipefail
 
 SERVICE_USER="patchdashboard"
-DATA_DIR="/var/lib/patchdashboard"
-PUBLIC_KEY="$DATA_DIR/.ssh/id_ed25519.pub"
+SERVICE_HOME="/var/lib/patchdashboard"
+DATA_DIR="$SERVICE_HOME"          # unless settings.json already names another folder
+PUBLIC_KEY="$SERVICE_HOME/.ssh/id_ed25519.pub"
 INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="$INSTALL_DIR/venv"
 SETTINGS="$INSTALL_DIR/config/settings.json"
@@ -69,9 +70,9 @@ pass "Using $PYTHON"
 
 echo "== Service account and SSH key"
 if ! getent passwd "$SERVICE_USER" >/dev/null; then
-    useradd --system --home-dir "$DATA_DIR" --create-home --shell /sbin/nologin "$SERVICE_USER"
+    useradd --system --home-dir "$SERVICE_HOME" --create-home --shell /sbin/nologin "$SERVICE_USER"
 fi
-install -d -m 700 -o "$SERVICE_USER" -g "$SERVICE_USER" "$DATA_DIR" "$DATA_DIR/.ssh"
+install -d -m 700 -o "$SERVICE_USER" -g "$SERVICE_USER" "$SERVICE_HOME" "$SERVICE_HOME/.ssh"
 if [ ! -f "$PUBLIC_KEY" ]; then
     runuser -u "$SERVICE_USER" -- ssh-keygen -q -t ed25519 -N "" -f "${PUBLIC_KEY%.pub}"
 fi
@@ -86,21 +87,37 @@ if [ -z "$DASHBOARD_URL" ] || [[ "$DASHBOARD_URL" == *YOUR_SERVER_IP* ]]; then
     DASHBOARD_URL="${DASHBOARD_URL:-$DEFAULT_URL}"
 fi
 
-# Older versions kept data files in the source tree; copy them over once.
+# Keep a data folder chosen earlier. A relative one means Patchli ran without
+# the installer, with data inside the install folder: migrate it below.
+CURRENT_DATA=$(setting data_dir)
+OLD_DATA=""
+if [[ "$CURRENT_DATA" == /* ]]; then
+    DATA_DIR="$CURRENT_DATA"
+else
+    OLD_DATA="$INSTALL_DIR/${CURRENT_DATA:-data}"
+fi
+install -d -m 700 -o "$SERVICE_USER" -g "$SERVICE_USER" "$DATA_DIR"
+
+# Earlier versions kept data in the install folder. Copy it over once,
+# never overwriting data that is already in place.
 OLD_INVENTORY=$(setting inventory_file)
 OLD_TOKENS=$(setting token_file)
 for pair in "${OLD_INVENTORY:-inventory/servers.json}:servers.json" \
             "${OLD_TOKENS:-security/registration_tokens.json}:registration_tokens.json" \
             "telemetry.db:telemetry.db"; do
-    src="$INSTALL_DIR/${pair%%:*}"
-    dest="$DATA_DIR/${pair##*:}"
-    if [ -f "$src" ] && [ ! -f "$dest" ]; then
-        cp "$src" "$dest"
-        pass "Copied $src to $dest"
-    fi
+    for src in "$INSTALL_DIR/${pair%%:*}" ${OLD_DATA:+"$OLD_DATA/${pair##*:}"}; do
+        dest="$DATA_DIR/${pair##*:}"
+        if [ -f "$src" ] && [ ! -f "$dest" ]; then
+            cp -p "$src" "$dest"
+            pass "Copied $src to $dest"
+        fi
+    done
 done
 chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
+pass "Data in $DATA_DIR: $(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))))' \
+    "$DATA_DIR/servers.json" 2>/dev/null || echo 0) registered node(s)"
 
+# Write to a temp file and rename, so an interruption can't truncate the settings.
 URL="$DASHBOARD_URL" KEY="$PUBLIC_KEY" DATA="$DATA_DIR" "$PYTHON" - "$SETTINGS" <<'EOF'
 import json, os, sys
 path = sys.argv[1]
@@ -108,7 +125,12 @@ settings = json.load(open(path))
 for old in ("inventory_file", "token_file"):
     settings.pop(old, None)
 settings.update(dashboard_url=os.environ["URL"], public_key_file=os.environ["KEY"], data_dir=os.environ["DATA"])
-json.dump(settings, open(path, "w"), indent=4)
+st = os.stat(path)
+with open(path + ".tmp", "w") as f:
+    json.dump(settings, f, indent=4)
+os.chown(path + ".tmp", st.st_uid, st.st_gid)
+os.chmod(path + ".tmp", st.st_mode & 0o777)
+os.replace(path + ".tmp", path)
 EOF
 pass "Updated $SETTINGS"
 
@@ -122,6 +144,13 @@ echo "== Permissions"
 # so the service account couldn't load the code or the venv. Make them
 # readable, not writable, by everyone; settings.json is locked down below.
 chmod -R go+rX "$INSTALL_DIR"
+# ...except data left in the install folder by older versions or test runs,
+# which can include node lists and unused registration tokens.
+for old in inventory/servers.json security/registration_tokens.json telemetry.db data; do
+    if [ -e "$INSTALL_DIR/$old" ]; then
+        chmod -R go-rwx "$INSTALL_DIR/$old"
+    fi
+done
 runuser -u "$SERVICE_USER" -- test -r "$INSTALL_DIR/run.py" ||
     fail "$SERVICE_USER can't read $INSTALL_DIR. Install under /opt, not a private folder such as a home directory."
 pass "Application readable by $SERVICE_USER"
