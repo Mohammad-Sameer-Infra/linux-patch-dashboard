@@ -1,32 +1,42 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 
 {% block title %}Documentation{% endblock %}
 
 {% block content %}
-<header class="page-head">
+<header class="doc-hero card">
+    <span class="brand-mark">{{ icon("book", 22) }}</span>
     <div>
-        <h1>Documentation</h1>
-        <p>Everything you need to install, configure and run {{ product.name }}</p>
+        <h1>{{ product.name }} documentation</h1>
+        <p>Install, run and troubleshoot {{ product.name }}, the agentless Linux patch dashboard.</p>
+        <div class="toolbar">
+            <a class="btn primary" href="{{ url_for('documentation.page', slug='installation') }}">Install {{ product.name }}</a>
+            <a class="btn" href="{{ url_for('documentation.page', slug='adding-nodes') }}">Add your first node</a>
+            <a class="btn" href="{{ url_for('documentation.page', slug='troubleshooting') }}">Troubleshooting</a>
+        </div>
     </div>
-    <span class="meta">{{ product.edition }} edition · v{{ product.version }} “{{ product.codename }}”</span>
 </header>
 
-<section class="doc-grid">
-    {% for slug, (emoji, title, _, description) in docs.items() %}
-    <a class="card doc-card" href="/documentation/{{ slug }}">
-        <span class="emoji" aria-hidden="true">{{ emoji }}</span>
-        <span>
-            <h3>{{ title }}</h3>
-            <p>{{ description }}</p>
-        </span>
-    </a>
-    {% endfor %}
+{% for section, pages in sections %}
+<section aria-labelledby="sec-{{ loop.index }}">
+    <h2 class="doc-section-title" id="sec-{{ loop.index }}">{{ section }}</h2>
+    <div class="doc-grid">
+        {% for slug, title, description in pages %}
+        <a class="card doc-card" href="{{ url_for('documentation.page', slug=slug) }}">
+            <span>
+                <h3>{{ title }}</h3>
+                <p>{{ description }}</p>
+            </span>
+        </a>
+        {% endfor %}
+    </div>
 </section>
+{% endfor %}
 
 <section class="card">
     <div class="card-head"><h2>About {{ product.name }}</h2></div>
     <dl class="details">
-        <dt>Tagline</dt><dd>{{ product.tagline }}</dd>
+        <dt>Version</dt><dd>{{ product.edition }} edition · v{{ product.version }} “{{ product.codename }}”</dd>
         <dt>Maintainer</dt><dd>{{ product.maintainer }}</dd>
         <dt>License</dt><dd>{{ product.license }}</dd>
         <dt>Source</dt><dd><a href="{{ product.github }}" target="_blank" rel="noopener">{{ product.github }}</a></dd>

@@ -18,13 +18,14 @@
 <body>
 <div class="layout">
     <nav class="sidebar" aria-label="Main">
-        <a class="brand" href="/">
+        <a class="brand" href="{{ '/' if logged_in else '/documentation/' }}">
             <span class="brand-mark">{{ icon("logo", 20) }}</span>
             <span>
                 <span class="brand-name">{{ product.name }}</span><br>
                 <span class="brand-tag">Linux patch dashboard</span>
             </span>
         </a>
+        {% if logged_in %}
         {% set nav = [
             ("/", "overview", "Overview"),
             ("/online", "check", "Online"),
@@ -33,6 +34,10 @@
             ("/generate-token", "plus", "Add node"),
             ("/documentation/", "book", "Documentation"),
         ] %}
+        {% else %}
+        {# Visitors reading the public docs; "/" asks the browser to log in. #}
+        {% set nav = [("/documentation/", "book", "Documentation"), ("/", "logo", "Sign in to dashboard")] %}
+        {% endif %}
         {% for href, ic, label in nav %}
         <a class="nav-link{{ ' active' if request.path == href or (href == '/documentation/' and request.path.startswith(href)) }}" href="{{ href }}">
             {{ icon(ic) }}<span class="nav-label">{{ label }}</span>
