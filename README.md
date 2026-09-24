@@ -1,547 +1,460 @@
-# Linux Patch Dashboard
+# Patchli — Linux Patch Dashboard
 
-A lightweight, agentless, web-based dashboard for collecting and viewing Linux patch information across multiple servers without logging into each machine individually.
+See which of your Linux servers need patches, from one web page, without logging in to each server.
 
-The dashboard securely connects to managed nodes over SSH, detects the operating system, gathers available package updates, classifies important updates, and presents the information through a simple web interface.
-
----
-
-# Features
-
-* Centralized Linux patch visibility.
-* Agentless architecture (no daemon required on managed nodes).
-* Supports:
-
-  * Ubuntu / Debian
-  * Rocky Linux / RHEL
-* Secure SSH key-based communication (one SSH session per node per collection).
-* Password-protected dashboard (HTTP Basic authentication).
-* One-time node registration using tokens.
-* Package classification:
-
-  * Total Updates
-  * Kernel Updates
-  * Security Updates (from the Ubuntu/Debian security pocket or dnf/yum security advisories)
-  * Critical Packages (kernel, OpenSSL, OpenSSH, sudo, systemd, glibc)
-* Automatic background collection on a configurable interval.
-* Historical telemetry storage using SQLite.
-* Online / Offline node monitoring.
-* Historical telemetry dashboard.
-* Built-in documentation center.
-* Automated installer with a built-in health check.
-* Systemd service deployment.
-* Dedicated runtime service account.
+Patchli connects to your servers over SSH, lists their pending package updates, highlights kernel, security and critical updates, and keeps a history. Nothing is installed on the servers you monitor: no agent, no Python.
 
 ---
 
-# Architecture
+## Contents
+
+1. [How it works](#how-it-works)
+2. [Requirements](#requirements)
+3. [Install the dashboard](#install-the-dashboard)
+4. [Add servers to monitor](#add-servers-to-monitor)
+5. [Using the dashboard](#using-the-dashboard)
+6. [Day-to-day administration](#day-to-day-administration)
+7. [Configuration reference](#configuration-reference)
+8. [Troubleshooting](#troubleshooting)
+9. [Upgrading](#upgrading)
+10. [Uninstalling](#uninstalling)
+11. [Roadmap](#roadmap)
+
+---
+
+## How it works
 
 ```text
-+------------------------+             SSH              +------------------------+
-|   Dashboard Server     | ---------------------------> |     Managed Node       |
-|                        |                              |                        |
-| Flask Web Application  |                              | Ubuntu / Debian        |
-| Telemetry Collector    |                              | Rocky / RHEL           |
-| SQLite Database        |                              | SSH Server             |
-| Registration API       |                              | Dashboard Public Key   |
-| Token Management       |                              | No Agent Required      |
-+------------------------+                              +------------------------+
++-------------------------+          SSH (every 5 min)        +-------------------------+
+|    Dashboard server     | --------------------------------> |      Managed node       |
+|                         |                                   |                         |
+|  Web dashboard (:5000)  |   runs: hostname, os-release,     |  Ubuntu / Debian        |
+|  Background collector   |   uptime, apt / dnf / yum         |  Rocky / RHEL           |
+|  SQLite history         |   update lists                    |  SSH server             |
+|  Registration API       |                                   |  Dashboard's public key |
++-------------------------+                                   +-------------------------+
 ```
 
-No software agent runs continuously on managed nodes.
+* The dashboard has its own SSH key. Each managed node trusts that key, added once during registration.
+* Every 5 minutes the dashboard opens **one** SSH session per node (up to 10 nodes at a time), collects the update list and stores it.
+* Web pages read the stored results, so they load instantly.
+* Updates are classified as:
 
-The dashboard securely connects over SSH whenever telemetry is collected.
-
----
-
-# Minimum Requirements
-
-## Dashboard Server
-
-| Component        | Requirement                            |
-| ---------------- | -------------------------------------- |
-| Operating System | Ubuntu 22.04+, Rocky Linux 8+, RHEL 8+ |
-| Python           | Python 3.11 or newer                   |
-| Git              | Installed                              |
-| OpenSSH Client   | Installed                              |
-| ssh-keygen       | Installed                              |
-| SQLite CLI       | Installed                              |
-| systemd          | Installed                              |
-
-> The dashboard requires Python 3.11 or newer.
+  | Category | How it is decided |
+  | --- | --- |
+  | **Total** | Every package with an available update |
+  | **Kernel** | `linux-image*`, `linux-headers*` (Debian/Ubuntu) or `kernel*` (RHEL family) |
+  | **Security** | Ubuntu/Debian: the update comes from the `-security` repository. RHEL family: the package appears in `dnf updateinfo --security` |
+  | **Critical** | Kernel, OpenSSL, OpenSSH, sudo, systemd, glibc |
 
 ---
 
-## Managed Nodes
+## Requirements
 
-Managed nodes require only:
+### Dashboard server
 
-* SSH server running.
-* Network connectivity from dashboard server.
-* SSH user capable of running:
+| | Requirement |
+| --- | --- |
+| Operating system | Ubuntu 22.04+, Debian 12+, Rocky Linux 8+, RHEL 8+ (with systemd) |
+| Python | **3.11 or newer** (see below: older distributions need an extra package) |
+| Packages | `git`, OpenSSH client (`ssh`, `ssh-keygen`) |
+| Network | Internet access during install (Python packages come from PyPI). Inbound TCP **5000** from your browser and from managed nodes. Outbound SSH to managed nodes |
+| Access | A user with `sudo` |
 
-  * apt list --upgradable
-  * dnf check-update
-  * yum check-update
+Which Python you get by default:
 
-Python is **not required** on managed nodes.
+| Distribution | Default `python3` | What to install |
+| --- | --- | --- |
+| Ubuntu 24.04 | 3.12 ✅ | `python3 python3-venv` |
+| Ubuntu 22.04 | 3.10 ❌ | `python3.11 python3.11-venv` |
+| Debian 12 | 3.11 ✅ | `python3 python3-venv` |
+| Rocky / RHEL 8 and 9 | 3.6 / 3.9 ❌ | `python3.12` |
 
-No persistent agent is installed.
+You don't need to change the system's default `python3`. The installer finds `python3.11`, `python3.12` or `python3.13` by itself.
 
----
+### Managed nodes (servers you want to monitor)
 
-# Recommended Deployment Model
-
-| Component                  | Recommended Value                                 |
-| -------------------------- | ------------------------------------------------- |
-| Service Account            | patchdashboard                                    |
-| Service Account Home       | /var/lib/patchdashboard                           |
-| Installation Directory     | /opt/linux-patch-dashboard                        |
-| Dashboard SSH Key          | /var/lib/patchdashboard/.ssh/id_ed25519           |
-| Dashboard Public Key       | /var/lib/patchdashboard/.ssh/id_ed25519.pub       |
-| Python Virtual Environment | /opt/linux-patch-dashboard/venv                   |
-| Service File               | /etc/systemd/system/linux-patch-dashboard.service |
-| Runtime User               | patchdashboard                                    |
-| Service Manager            | systemd                                           |
-
----
-
-# Ownership Model
-
-The recommended deployment separates source-code ownership from runtime ownership.
-
-| Purpose            | User                |
-| ------------------ | ------------------- |
-| Source Code        | Administrative User |
-| Git Operations     | Administrative User |
-| Dashboard Runtime  | patchdashboard      |
-| Dashboard SSH Keys | patchdashboard      |
-| Systemd Service    | patchdashboard      |
-
-The installer intentionally does not modify ownership of the application source tree.
+* Ubuntu / Debian (uses `apt`) or Rocky / RHEL / AlmaLinux / CentOS (uses `dnf` or `yum`).
+* SSH server running, with key-based login allowed (the default).
+* A normal user account that can log in over SSH. **No sudo needed**: listing available updates works without root.
+* `curl` and `ssh-keygen`, both used once by the registration script (installed on most servers already).
+* The node must be able to reach the dashboard on port 5000, and the dashboard must be able to reach the node on port 22.
 
 ---
 
-# Installation
+## Install the dashboard
 
-## Step 1 - Install Prerequisites
+Run everything below **on the dashboard server**.
 
-### Ubuntu / Debian
+### Step 1: Install prerequisites
+
+**Ubuntu 24.04 / Debian 12**
 
 ```bash
 sudo apt update
-
-sudo apt install -y \
-    git \
-    openssh-client \
-    sqlite3 \
-    python3 \
-    python3-venv \
-    python3-pip
+sudo apt install -y git openssh-client python3 python3-venv
 ```
 
-### Rocky Linux / RHEL
+**Ubuntu 22.04**
 
 ```bash
-sudo dnf install -y \
-    git \
-    openssh-clients \
-    sqlite \
-    python3.12 \
-    python3.12-pip
+sudo apt update
+sudo apt install -y git openssh-client python3.11 python3.11-venv
 ```
 
-Verify:
+**Rocky Linux / RHEL 8 or 9**
 
 ```bash
-python3 --version
+sudo dnf install -y git openssh-clients python3.12
 ```
 
----
+Optional, for inspecting the history database by hand: `sqlite3` (Ubuntu/Debian) or `sqlite` (Rocky/RHEL).
 
-## Step 2 - Clone Repository
-
-```bash
-cd /opt
-
-sudo git clone \
-    https://github.com/Mohammad-Sameer-Infra/linux-patch-dashboard.git
-```
-
-Optional:
+### Step 2: Download Patchli
 
 ```bash
-sudo chown -R <admin-user>:<admin-user> \
-    /opt/linux-patch-dashboard
-```
-
----
-
-## Step 3 - Run Installer (Recommended)
-
-Execute:
-
-```bash
+sudo git clone https://github.com/Mohammad-Sameer-Infra/linux-patch-dashboard.git /opt/linux-patch-dashboard
 cd /opt/linux-patch-dashboard
+```
 
+Install into `/opt/linux-patch-dashboard` as shown. The dashboard runs as a separate service account, which must be able to read this folder. A folder inside your home directory usually won't work.
+
+### Step 3: Run the installer
+
+```bash
 sudo ./install.sh
 ```
 
-The installer automatically:
+The installer asks two questions:
 
-* Validates prerequisites.
-* Detects Python 3.11+.
-* Creates the patchdashboard service account.
-* Creates dashboard SSH keys.
-* Creates the data directory `/var/lib/patchdashboard` (inventory, tokens, telemetry database).
-* Creates and updates settings.json.
-* Creates the Python virtual environment.
-* Installs Python dependencies.
-* Asks for the dashboard admin password (first run only).
-* Creates, enables and starts the systemd service.
-* Runs the health check.
+1. **Dashboard URL**: the address managed nodes will use to reach the dashboard. Press Enter to accept the suggested `http://<this-server-ip>:5000`, or type another address.
+2. **Admin password** (at least 8 characters, entered twice): this is how you log in to the dashboard, with the username `admin`.
 
-The installer is safe to run multiple times.
+It then:
 
-The installer never:
+* creates a service account `patchdashboard`, with home and data folder `/var/lib/patchdashboard`
+* generates the dashboard's SSH key, `/var/lib/patchdashboard/.ssh/id_ed25519`
+* creates `config/settings.json`
+* creates a Python virtual environment in `venv/` and installs the dependencies
+* installs, enables and starts the `linux-patch-dashboard` systemd service
+* runs a health check. Every line should say `[PASS]` and end with `System ready.`
 
-* Overwrites existing SSH keys.
-* Silently overwrites dashboard configuration.
-* Deletes telemetry data.
-* Installs operating-system packages automatically.
+The installer is safe to run again at any time, for example to repair an installation. It never overwrites the SSH key, your settings or your data.
+
+### Step 4: Open the firewall
+
+Skip this step if the server has no firewall enabled.
+
+**Ubuntu / Debian (ufw)**
+
+```bash
+sudo ufw allow 5000/tcp
+```
+
+**Rocky / RHEL (firewalld)**
+
+```bash
+sudo firewall-cmd --permanent --add-port=5000/tcp
+sudo firewall-cmd --reload
+```
+
+### Step 5: Log in
+
+Open `http://<dashboard-server-ip>:5000` in your browser. The browser asks for a username and password: enter `admin` and the password you chose in step 3.
+
+The dashboard is empty until you add servers, which is the next section.
+
+> **Security note:** the login is sent over plain HTTP. On an untrusted network, put the dashboard behind an HTTPS reverse proxy (for example nginx or Caddy) and allow port 5000 only from that proxy.
 
 ---
 
-# Installer Components
+## Add servers to monitor
 
-| Command                   | Purpose                                     |
-| ------------------------- | ------------------------------------------- |
-| sudo ./install.sh         | Install or repair dashboard deployment      |
-| sudo ./install.sh --check | Check deployment health (changes nothing)   |
-| uninstall.sh              | Safe dashboard removal                      |
+Repeat these steps for each server you want to monitor.
 
-The health check verifies the virtual environment's Python version, settings.json (dashboard URL and admin password), the dashboard public key and the systemd service.
+### Step 1: Create a registration token (in the browser)
 
-To change the admin password later:
+In the dashboard, click **Add Node**. The page shows:
+
+* a **registration token**: one-time use, create a new one for each server
+* the **SSH key fingerprint** of the dashboard, which you will compare in step 3
+
+Keep this page open.
+
+### Step 2: Copy the registration script to the server
+
+From the dashboard server (replace the user and address):
 
 ```bash
+scp /opt/linux-patch-dashboard/registration/register-node.sh <user>@<node-ip>:~/
+```
+
+Or create the file on the node and paste the contents of `registration/register-node.sh` into it.
+
+### Step 3: Run it on the server, as the user the dashboard should log in as
+
+Log in to the node as a **normal user** (not root), for example `ubuntu` or `rocky`, then run:
+
+```bash
+chmod +x register-node.sh
+./register-node.sh
+```
+
+The script:
+
+1. Asks for the **dashboard URL** (for example `http://192.168.1.50:5000`) and the **token**.
+2. Shows the hostname, IP address and user it detected.
+3. Downloads the dashboard's public key and shows its fingerprint. **Type `y` only if it matches the fingerprint on the Add Node page.** If it doesn't, someone may be intercepting the connection.
+4. Adds the key to `~/.ssh/authorized_keys`. Running the script again doesn't add it twice.
+5. Registers the node. You should see:
+
+   ```json
+   {"message":"Node registered successfully","success":true}
+   ```
+
+**Check the detected IP address.** The script uses the server's first IP address, which on servers with several network interfaces (or Docker) may not be the one the dashboard can reach. The script also always registers SSH port 22. If either is wrong, fix them afterwards as described in [Editing a node's IP address or SSH port](#editing-a-nodes-ip-address-or-ssh-port).
+
+### Step 4: Wait for the first collection, or collect now
+
+A new node shows as **Pending** until the next collection, which can take up to 5 minutes. To collect immediately, run this on the dashboard server:
+
+```bash
+cd /opt/linux-patch-dashboard
+sudo -u patchdashboard venv/bin/python collector.py
+```
+
+Each node is printed with its status, for example `web01: Online, 12 updates`. Refresh the dashboard to see the results.
+
+---
+
+## Using the dashboard
+
+| Page | What it shows |
+| --- | --- |
+| **Dashboard** (`/`) | Node counts, the dashboard server's details and every managed node with its update count and status. Type in the search box to filter. Click a node for details |
+| **Online / Offline** (`/online`, `/offline`) | Click the metric cards on the dashboard |
+| **Node details** (`/node/<hostname>`) | Node information, when it was last seen online, and four cards: total, kernel, security and critical updates. Click a card to list the packages |
+| **History** (`/history`) | The latest 500 collection results for all nodes |
+| **Add Node** (`/generate-token`) | Creates a registration token. Each visit creates a new one |
+| **Documentation** (`/documentation/`) | Built-in documentation |
+
+Node statuses:
+
+| Status | Meaning |
+| --- | --- |
+| **Online** | The last collection succeeded |
+| **Offline** | The last collection could not connect or timed out. See [Troubleshooting](#troubleshooting) |
+| **Pending** | Registered, not collected yet |
+
+Pages reload themselves every 30 seconds. To log out, close the browser: HTTP Basic logins stay active until then.
+
+---
+
+## Day-to-day administration
+
+Run these on the dashboard server, from `/opt/linux-patch-dashboard`.
+
+| Task | Command |
+| --- | --- |
+| Check the installation | `sudo ./install.sh --check` |
+| Service status | `sudo systemctl status linux-patch-dashboard` |
+| Restart | `sudo systemctl restart linux-patch-dashboard` |
+| Follow the logs | `sudo journalctl -u linux-patch-dashboard -f` |
+| Collect from all nodes now | `sudo -u patchdashboard venv/bin/python collector.py` |
+| Test SSH to a node | `sudo -u patchdashboard ssh <user>@<node-ip> hostname` |
+
+### Changing the admin password
+
+```bash
+cd /opt/linux-patch-dashboard
 sudo venv/bin/python run.py set-password
 sudo systemctl restart linux-patch-dashboard
 ```
 
----
+### Editing a node's IP address or SSH port
 
-## uninstall.sh
+Nodes are stored in `/var/lib/patchdashboard/servers.json`:
 
-Used for safe dashboard removal.
-
-Future releases may include:
-
-* Data preservation options
-* Service account cleanup
-* Runtime cleanup automation
-
----
-
-# Configuration
-
-Configuration file:
-
-```text
-config/settings.json
+```json
+[
+    {
+        "node_id": "8f0c…",
+        "hostname": "web01",
+        "ip": "192.168.1.10",
+        "ssh_user": "ubuntu",
+        "ssh_port": 22,
+        "state": "active",
+        "registered_at": "2026-09-24 10:00:00"
+    }
+]
 ```
 
-Example:
+Edit it with `sudo nano /var/lib/patchdashboard/servers.json`. Keep it valid JSON: commas between entries, none after the last one. No restart is needed; the change applies from the next collection.
+
+### Removing a node
+
+1. Delete its entry from `/var/lib/patchdashboard/servers.json`, as above. It disappears from the dashboard straight away. Its old results stay on the History page.
+2. Optional: delete its history:
+
+   ```bash
+   sudo sqlite3 /var/lib/patchdashboard/telemetry.db "DELETE FROM telemetry WHERE hostname = '<hostname>';"
+   ```
+
+3. Optional: on the node, remove the dashboard's key (the line ending in `patchdashboard@…`) from `~/.ssh/authorized_keys`.
+
+### Backups
+
+Everything Patchli stores is in two places. Back these up:
+
+* `/var/lib/patchdashboard/`: nodes, tokens, history and the dashboard's SSH key
+* `/opt/linux-patch-dashboard/config/settings.json`: settings and the password hash
+
+---
+
+## Configuration reference
+
+Settings live in `/opt/linux-patch-dashboard/config/settings.json`. The installer creates this file; you rarely need to edit it. Restart the service after changing it.
 
 ```json
 {
-    "dashboard_url": "http://192.168.110.128:5000",
+    "dashboard_url": "http://192.168.1.50:5000",
     "data_dir": "/var/lib/patchdashboard",
     "public_key_file": "/var/lib/patchdashboard/.ssh/id_ed25519.pub",
     "admin_user": "admin",
-    "admin_password_hash": "<set by run.py set-password>",
+    "admin_password_hash": "scrypt:…",
     "dashboard_refresh_seconds": 30,
     "collect_interval_seconds": 300
 }
 ```
 
-| Setting                   | Meaning                                                        |
-| ------------------------- | -------------------------------------------------------------- |
-| data_dir                  | Holds servers.json, registration_tokens.json and telemetry.db  |
-| admin_user                | Username for logging in to the dashboard                       |
-| admin_password_hash       | Password hash, written by `run.py set-password`                |
-| dashboard_refresh_seconds | How often dashboard pages reload in the browser                |
-| collect_interval_seconds  | How often the dashboard collects from all nodes in background  |
+| Setting | Meaning | Default |
+| --- | --- | --- |
+| `dashboard_url` | Address shown by the installer for nodes to use | Set by the installer |
+| `data_dir` | Folder for `servers.json`, `registration_tokens.json` and `telemetry.db` | `/var/lib/patchdashboard` |
+| `public_key_file` | Dashboard public key handed out to nodes | `/var/lib/patchdashboard/.ssh/id_ed25519.pub` |
+| `admin_user` | Dashboard login username | `admin` |
+| `admin_password_hash` | Password hash. Set it with `run.py set-password`, never by hand | Set by the installer |
+| `dashboard_refresh_seconds` | How often pages reload in the browser | `30` |
+| `collect_interval_seconds` | How often all nodes are collected | `300` (5 minutes) |
 
-Every page requires the admin login except `/public-key` and `/api/register`, which managed nodes call during registration (registration still needs a one-time token). The login is sent over plain HTTP unless you put the dashboard behind an HTTPS reverse proxy, which is recommended.
+The file is readable only by root and the service account, because it contains the password hash.
 
----
-
-# Managed Node Registration
-
-## Generate Registration Token
-
-Open:
-
-```text
-http://<dashboard-server-ip>:5000/generate-token
-```
-
-Copy the generated token, and note the SSH key fingerprint shown under it.
+Every page requires the login except `/public-key` and `/api/register`. Nodes call these while registering, and registering still needs a valid one-time token.
 
 ---
 
-## Copy Registration Script
+## Troubleshooting
 
-Copy:
-
-```text
-registration/register-node.sh
-```
-
-to the managed node.
-
-Make executable:
+Start with the health check. It tells you what's wrong in most cases:
 
 ```bash
-chmod +x register-node.sh
-```
-
----
-
-## Register Node
-
-Execute:
-
-```bash
-./register-node.sh
-```
-
-The script prompts for:
-
-* Dashboard URL
-* Registration Token
-
-The script automatically detects:
-
-* Hostname
-* Primary IP Address
-* Current User
-* SSH Port
-
-The script:
-
-1. Downloads the dashboard public key and shows its fingerprint.
-2. Asks you to confirm it matches the fingerprint on the token page.
-3. Adds the key to authorized_keys (once, even if run again).
-4. Registers the node in the dashboard inventory.
-
-No manual SSH-user configuration is required.
-
-The first time the dashboard connects to a node it remembers the node's SSH host key. If a node is rebuilt and its host key changes, collection fails until you remove the old key on the dashboard server:
-
-```bash
-sudo -u patchdashboard ssh-keygen -R <managed-node-ip>
-```
-
----
-
-# Collecting Telemetry
-
-The dashboard collects from every node in the background every `collect_interval_seconds` (5 minutes by default), checking up to 10 nodes in parallel. Pages show the latest collected data, so they load instantly.
-
-To collect immediately:
-
-```bash
-sudo -u patchdashboard venv/bin/python collector.py
-```
-
-Nodes are read from `servers.json` and results are stored in `telemetry.db`, both in `data_dir`.
-
----
-
-# Dashboard Pages
-
-| URL              | Description                   |
-| ---------------- | ----------------------------- |
-| /                | Main Dashboard                |
-| /history         | Historical Telemetry          |
-| /online          | Online Nodes                  |
-| /offline         | Offline Nodes                 |
-| /node/<hostname> | Node Details                  |
-| /generate-token  | Registration Token Generation |
-| /documentation/  | Documentation Center          |
-
----
-
-# Service Management
-
-Check status:
-
-```bash
-sudo systemctl status linux-patch-dashboard
-```
-
-Restart:
-
-```bash
-sudo systemctl restart linux-patch-dashboard
-```
-
-View logs:
-
-```bash
-sudo journalctl -u linux-patch-dashboard.service -f
-```
-
----
-
-# De-registering a Managed Node
-
-Remove the node from:
-
-```text
-/var/lib/patchdashboard/servers.json
-```
-
-Optional telemetry cleanup:
-
-```sql
-DELETE FROM telemetry
-WHERE hostname = '<hostname>';
-```
-
-Optional SSH cleanup:
-
-Remove dashboard public key from:
-
-```text
-~/.ssh/authorized_keys
-```
-
-on the managed node.
-
----
-
-# Troubleshooting
-
-## Validate Deployment
-
-```bash
+cd /opt/linux-patch-dashboard
 sudo ./install.sh --check
 ```
 
----
+### Dashboard
 
-## Check Service
+| Symptom | Cause and fix |
+| --- | --- |
+| Browser can't connect | Is the service running (`sudo systemctl status linux-patch-dashboard`)? Is port 5000 open ([Install step 4](#step-4-open-the-firewall))? |
+| Page says "No admin password is set" | Run `sudo venv/bin/python run.py set-password`, then restart the service |
+| Login prompt keeps coming back | Wrong username or password. The username is `admin` unless you changed `admin_user`. Reset the password as above |
+| Service won't start | Check `sudo journalctl -u linux-patch-dashboard -n 50`. Usually a typo in `settings.json`: make sure it's valid JSON, or re-run `sudo ./install.sh` |
+| Installer: "Python 3.11 or newer is required" | Install the Python package for your distribution ([Requirements](#dashboard-server)) and run the installer again |
+| Installer fails during "Python environment" | The server can't reach PyPI (internet or proxy), or the `-venv` package is missing on Ubuntu/Debian |
 
-```bash
-sudo systemctl status linux-patch-dashboard
-```
+### Registration
 
----
+| Symptom | Cause and fix |
+| --- | --- |
+| "The dashboard did not return an SSH public key" | Wrong dashboard URL, dashboard down, or port 5000 blocked. Test from the node: `curl http://<dashboard-ip>:5000/public-key` |
+| `curl: command not found` | Install curl on the node (`sudo apt install curl` or `sudo dnf install curl`) |
+| "Invalid or used token" | Each token works once. Click **Add Node** for a new one |
+| "Hostname already registered" / "IP already registered" | The node is already in the list. To re-register it, remove it first ([Removing a node](#removing-a-node)) |
+| "Invalid hostname / IP address / SSH user" | The detected value contains unsupported characters. Check the output of `hostname`, `hostname -I` and `whoami` on the node |
 
-## View Logs
+### Nodes showing Offline
 
-```bash
-sudo journalctl -u linux-patch-dashboard.service -f
-```
-
----
-
-## Test SSH Connectivity
-
-Run it as the dashboard's service account, which owns the SSH key:
-
-```bash
-sudo -u patchdashboard ssh <user>@<managed-node-ip> hostname
-```
-
----
-
-## Test Public Key Endpoint
+Test the exact connection the dashboard uses, from the dashboard server:
 
 ```bash
-curl http://127.0.0.1:5000/public-key
+sudo -u patchdashboard ssh -p <port> <user>@<node-ip> hostname
 ```
+
+| What you see | Cause and fix |
+| --- | --- |
+| It prints the hostname | SSH is fine. Wait for the next collection, or run `collector.py` |
+| `Connection timed out` / `No route to host` | Wrong IP address, node down, or a firewall blocking port 22. Check the IP in `servers.json` |
+| `Connection refused` | SSH isn't running on that port. Check `ssh_port` in `servers.json` |
+| `Permission denied (publickey)` | The dashboard's key isn't in that user's `~/.ssh/authorized_keys` on the node. Re-run `register-node.sh` as that user, or add the output of `curl http://<dashboard-ip>:5000/public-key` to the file yourself |
+| `REMOTE HOST IDENTIFICATION HAS CHANGED` | The node was rebuilt or its IP now belongs to another machine. If that's expected, remove the old host key: `sudo -u patchdashboard ssh-keygen -R <node-ip>` |
+
+### Update counts
+
+| Symptom | Cause and fix |
+| --- | --- |
+| Security count is always 0 on a RHEL-family node | That node's repositories don't publish security advisories (common with some mirrors and CentOS Stream). Totals and kernel counts are still correct |
+| Counts look out of date | Pages show the last collection. Check "Last Updated" at the top of the dashboard, or collect now with `collector.py` |
+| First collection of a RHEL-family node is slow | `dnf` downloads repository metadata the first time. Later collections are quicker |
 
 ---
 
-## View Telemetry Database
+## Upgrading
 
 ```bash
-sudo sqlite3 /var/lib/patchdashboard/telemetry.db
+cd /opt/linux-patch-dashboard
+sudo git pull
+sudo ./install.sh
 ```
 
-Example:
+The installer updates the dependencies and restarts the service. Your nodes, history, SSH key and settings are kept.
 
-```sql
-SELECT hostname,
-       updates,
-       security_updates,
-       critical_packages,
-       status
-FROM telemetry;
+**Upgrading from v1.1 or earlier:** the installer copies your existing `inventory/servers.json`, `security/registration_tokens.json` and `telemetry.db` into `/var/lib/patchdashboard/`, and asks you to set an admin password. The old files are left in place; delete them once you've checked the dashboard. The first time the dashboard connects to each existing node, it saves that node's SSH host key.
+
+---
+
+## Uninstalling
+
+`uninstall.sh` is not implemented yet. To remove Patchli by hand:
+
+```bash
+sudo systemctl disable --now linux-patch-dashboard
+sudo rm /etc/systemd/system/linux-patch-dashboard.service
+sudo systemctl daemon-reload
+sudo rm -rf /opt/linux-patch-dashboard
 ```
 
----
+The commands below permanently delete your nodes, history and the dashboard's SSH key. Back up `/var/lib/patchdashboard` first if you might need them:
 
-# Project Status
+```bash
+sudo userdel patchdashboard
+sudo rm -rf /var/lib/patchdashboard
+```
 
-## v1.0 - Completed
-
-* Registration Workflow
-* Telemetry Collection
-* Online/Offline Monitoring
-* Historical Telemetry
-* Bootstrap Validation
+On each managed node, remove the dashboard's key from `~/.ssh/authorized_keys`.
 
 ---
 
-## v1.1 - Completed
+## Roadmap
 
-* install.sh
-* bootstrap.sh
-* Virtual Environment Management
-* Dependency Management
-* Service Account Deployment
-* Systemd Service Deployment
-* Service Validation
-* Runtime Ownership Controls
-* Installer-Based Deployment
+**Done**
 
----
+* v1.0: registration workflow, collection, online/offline monitoring, history
+* v1.1: installer, virtual environment, service account, systemd service
+* Next release (in progress): dashboard login, hardened registration and SSH, scheduled background collection, accurate security classification, one SSH session per node, built-in documentation, simpler codebase
 
-## v1.2 - Planned
+**Planned**
 
-* Node Deregistration API
-* Node Retirement Workflow
-* Inventory Lifecycle Management
-* Telemetry Cleanup Automation
+* Node removal from the web interface, node retirement and history cleanup
+* `uninstall.sh`
+* Ansible integration and patch orchestration
+* Compliance reporting and trend analysis
+* AI-assisted recommendations
 
 ---
 
-## v2.0 - Planned
+## Project goal
 
-* Scheduled Telemetry Collection
-* Ansible Integration
-* Patch Orchestration
-* Fleet Automation
+Give administrators a lightweight, agentless way to see the patch status of their Linux servers from a single dashboard, without logging in to every server. The current focus is patch inventory and visibility; automation and compliance reporting come later.
 
----
-
-## v3.0 - Planned
-
-* Compliance Reporting
-* Trend Analysis
-* AI-Assisted Recommendations
-
----
-
-# Project Goal
-
-The primary objective of this project is to provide a lightweight, agentless Linux patch visibility platform that enables administrators to quickly determine the patch status of their infrastructure from a single dashboard without logging into every individual server.
-
-Current development is focused on patch inventory and visibility.
-
-Future enhancements may include automation, orchestration, compliance reporting, and AI-assisted operational insights.
+Licensed under the Apache License 2.0. Maintained by Mohammad Sameer.
