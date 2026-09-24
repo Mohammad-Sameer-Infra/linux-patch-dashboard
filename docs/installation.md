@@ -32,8 +32,11 @@ Optional, for inspecting the history database by hand: `sqlite3` (Ubuntu/Debian)
 
 ```bash
 sudo git clone https://github.com/Mohammad-Sameer-Infra/linux-patch-dashboard.git /opt/linux-patch-dashboard
+sudo chmod -R go+rX /opt/linux-patch-dashboard
 cd /opt/linux-patch-dashboard
 ```
+
+The `chmod` makes the files readable, not writable, by other users. It's needed on security-hardened servers with a strict `umask` (such as `027`): there, a folder created with `sudo` is readable only by root, and `cd` fails with *Permission denied*. On other servers it changes nothing.
 
 > **Install into `/opt/linux-patch-dashboard`.** The dashboard runs as a separate service account that must be able to read this folder. A folder inside your home directory usually isn't readable by other users.
 
@@ -58,6 +61,7 @@ Then it sets everything up:
 | Settings | Creates `config/settings.json` and sets the dashboard URL, key path and data folder |
 | Data | Creates `/var/lib/patchdashboard` for the inventory, tokens and history; copies data from older versions |
 | Python | Creates `venv/` and installs the dependencies from `requirements.txt` |
+| Permissions | Makes the application readable by the service account, even on servers with a strict `umask` |
 | Password | Asks for the admin password (first run only) |
 | Service | Installs, enables and starts the `linux-patch-dashboard` systemd service |
 | Health check | Runs `install.sh --check` |
@@ -71,6 +75,7 @@ A successful run ends with the health check:
 [PASS] Dashboard URL configured
 [PASS] Admin password set
 [PASS] Dashboard public key found
+[PASS] Application readable by patchdashboard
 [PASS] linux-patch-dashboard is running
 System ready.
 

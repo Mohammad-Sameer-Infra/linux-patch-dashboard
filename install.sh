@@ -37,6 +37,8 @@ check() {
     else
         warn "settings.json missing"
     fi
+    runuser -u "$SERVICE_USER" -- test -r "$INSTALL_DIR/run.py" 2>/dev/null \
+        && pass "Application readable by $SERVICE_USER" || warn "$SERVICE_USER can't read $INSTALL_DIR (re-run: sudo ./install.sh)"
     systemctl is-active --quiet "$SERVICE" && pass "$SERVICE is running" || warn "$SERVICE is not running"
 
     [ "$problems" -eq 0 ] && echo "System ready." || echo "Action required, see warnings above."
@@ -114,6 +116,15 @@ echo "== Python environment"
 [ -d "$VENV_DIR" ] || "$PYTHON" -m venv "$VENV_DIR"
 "$VENV_DIR/bin/pip" install -q -r "$INSTALL_DIR/requirements.txt"
 pass "Dependencies installed in $VENV_DIR"
+
+echo "== Permissions"
+# Servers with a strict umask (027, 077) create files other users can't read,
+# so the service account couldn't load the code or the venv. Make them
+# readable, not writable, by everyone; settings.json is locked down below.
+chmod -R go+rX "$INSTALL_DIR"
+runuser -u "$SERVICE_USER" -- test -r "$INSTALL_DIR/run.py" ||
+    fail "$SERVICE_USER can't read $INSTALL_DIR. Install under /opt, not a private folder such as a home directory."
+pass "Application readable by $SERVICE_USER"
 
 if [ -z "$(setting admin_password_hash)" ]; then
     echo "Set the password for logging in to the dashboard (user: admin)."

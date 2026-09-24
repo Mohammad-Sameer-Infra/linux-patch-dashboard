@@ -17,6 +17,8 @@ Then find your symptom below.
 | `ssh-keygen not found` (or `python3`, `ssh`, `systemctl`) | Install the prerequisites from [Installation, step 1](installation.md#step-1-install-prerequisites). |
 | Fails at "Python environment" | The server can't reach PyPI (check internet access or proxy settings), or the `-venv` package is missing on Ubuntu/Debian. |
 | `Run install.sh as root or with sudo.` | Run `sudo ./install.sh`. |
+| `cd: /opt/linux-patch-dashboard: Permission denied` after cloning | The server uses a strict `umask`, so the cloned files are readable only by root. Run `sudo chmod -R go+rX /opt/linux-patch-dashboard`. The installer does this automatically as well. |
+| `patchdashboard can't read /opt/…` | The installation folder is inside a private folder, such as a home directory. Move it to `/opt/linux-patch-dashboard` and run the installer again. |
 | `git pull` says local changes would be overwritten | See [Upgrading](upgrading.md#if-git-pull-refuses-to-update). |
 
 ## Dashboard
@@ -27,7 +29,7 @@ Then find your symptom below.
 | "No admin password is set" | Run `sudo venv/bin/python run.py set-password`, then `sudo systemctl restart linux-patch-dashboard`. |
 | The login prompt keeps coming back | Wrong username or password. The username is `admin` unless you changed `admin_user`. Reset the password as above. |
 | The service won't start | Check `sudo journalctl -u linux-patch-dashboard -n 50`. Usually `settings.json` isn't valid JSON: check it with `python3 -m json.tool config/settings.json`, or re-run `sudo ./install.sh`. |
-| `PermissionError` in the log | The service can't read `settings.json` or write to `/var/lib/patchdashboard`. Re-run `sudo ./install.sh` to restore ownership. |
+| `PermissionError` in the log | The service can't read the application or `settings.json`, or can't write to `/var/lib/patchdashboard`. This can happen after `git pull` on servers with a strict `umask`. Re-run `sudo ./install.sh` to restore permissions. |
 | Page looks unstyled or old after an upgrade | Restart the service and hard-refresh the browser (Ctrl+F5 or Cmd+Shift+R). |
 
 ## Registration

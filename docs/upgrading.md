@@ -10,13 +10,7 @@ sudo ./install.sh
 
 The installer updates the Python dependencies, rewrites the service file and restarts the service. Your nodes, history, SSH key and settings are kept.
 
-For releases that only change the web interface, restarting is enough:
-
-```bash
-sudo systemctl restart linux-patch-dashboard
-```
-
-Running the full installer is always safe, so use it when in doubt.
+Always run the installer after `git pull`, even for small releases. Besides updating dependencies, it re-applies file permissions, which matters on servers with a strict `umask`. There, files added by `git pull` are readable only by root until the installer runs. The installer is safe to run as often as you like.
 
 ### If `git pull` refuses to update
 

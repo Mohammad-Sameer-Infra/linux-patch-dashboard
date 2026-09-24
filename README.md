@@ -17,6 +17,7 @@ On an Ubuntu 24.04 / Debian 12 server (other distributions: see [Installation](d
 ```bash
 sudo apt install -y git openssh-client python3 python3-venv
 sudo git clone https://github.com/Mohammad-Sameer-Infra/linux-patch-dashboard.git /opt/linux-patch-dashboard
+sudo chmod -R go+rX /opt/linux-patch-dashboard
 cd /opt/linux-patch-dashboard
 sudo ./install.sh
 ```
