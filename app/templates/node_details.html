@@ -31,7 +31,7 @@
         <span>
             {% if server.status == "Offline" %}
                 The last collection failed{% if server.last_seen %}; last seen online {{ server.last_seen | ago }}{% endif %}.
-                See <a href="/documentation/troubleshooting">Troubleshooting</a>.
+                See <a href="/documentation/troubleshooting#nodes-showing-offline">Troubleshooting</a>.
             {% else %}
                 Results appear after the next collection (every few minutes).
             {% endif %}

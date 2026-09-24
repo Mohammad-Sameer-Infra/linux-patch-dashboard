@@ -4,9 +4,46 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<a class="back" href="/documentation/">{{ icon("back", 14) }}Documentation</a>
-<article class="card prose">
-    {# Rendered from the Markdown files shipped in docs/, not user input. #}
-    {{ content | safe }}
-</article>
+<div class="doc-layout">
+    <nav class="doc-nav" aria-label="Documentation">
+        <a class="doc-home" href="{{ url_for('documentation.index') }}">{{ icon("book", 14) }}All documentation</a>
+        {% for section, pages in sections %}
+        <div class="doc-nav-section">{{ section }}</div>
+        {% for s, t, _ in pages %}
+        <a class="doc-nav-link{{ ' active' if s == slug }}" href="{{ url_for('documentation.page', slug=s) }}"
+           {% if s == slug %}aria-current="page"{% endif %}>{{ t }}</a>
+        {% endfor %}
+        {% endfor %}
+    </nav>
+
+    <article class="card prose">
+        {# Rendered from the Markdown files shipped in docs/, not user input. #}
+        {{ content | safe }}
+
+        <footer class="doc-footer">
+            {% if prev %}
+            <a class="doc-pager" href="{{ url_for('documentation.page', slug=prev[0]) }}">
+                <span>Previous</span><strong>{{ prev[1] }}</strong>
+            </a>
+            {% else %}<span></span>{% endif %}
+            {% if next %}
+            <a class="doc-pager next" href="{{ url_for('documentation.page', slug=next[0]) }}">
+                <span>Next</span><strong>{{ next[1] }}</strong>
+            </a>
+            {% endif %}
+        </footer>
+        <p class="doc-edit">
+            <a href="{{ product.github }}/blob/main/docs/{{ slug }}.md" target="_blank" rel="noopener">View this page on GitHub</a>
+        </p>
+    </article>
+
+    {% if toc %}
+    <aside class="doc-toc" aria-label="On this page">
+        <div class="doc-nav-section">On this page</div>
+        {% for id, name in toc %}
+        <a href="#{{ id }}">{{ name }}</a>
+        {% endfor %}
+    </aside>
+    {% endif %}
+</div>
 {% endblock %}
