@@ -14,20 +14,21 @@ The dashboard securely connects to managed nodes over SSH, detects the operating
 
   * Ubuntu / Debian
   * Rocky Linux / RHEL
-* Secure SSH key-based communication.
+* Secure SSH key-based communication (one SSH session per node per collection).
+* Password-protected dashboard (HTTP Basic authentication).
 * One-time node registration using tokens.
 * Package classification:
 
   * Total Updates
   * Kernel Updates
-  * Security Updates
-  * Critical Packages
+  * Security Updates (from the Ubuntu/Debian security pocket or dnf/yum security advisories)
+  * Critical Packages (kernel, OpenSSL, OpenSSH, sudo, systemd, glibc)
+* Automatic background collection on a configurable interval.
 * Historical telemetry storage using SQLite.
 * Online / Offline node monitoring.
 * Historical telemetry dashboard.
-* Fleet-wide patch inventory from a single interface.
-* Automated installer.
-* Bootstrap validation framework.
+* Built-in documentation center.
+* Automated installer with a built-in health check.
 * Systemd service deployment.
 * Dedicated runtime service account.
 
@@ -192,13 +193,13 @@ The installer automatically:
 * Detects Python 3.11+.
 * Creates the patchdashboard service account.
 * Creates dashboard SSH keys.
+* Creates the data directory `/var/lib/patchdashboard` (inventory, tokens, telemetry database).
 * Creates and updates settings.json.
 * Creates the Python virtual environment.
 * Installs Python dependencies.
-* Creates the systemd service.
-* Enables the service.
-* Starts the service.
-* Executes bootstrap validation.
+* Asks for the dashboard admin password (first run only).
+* Creates, enables and starts the systemd service.
+* Runs the health check.
 
 The installer is safe to run multiple times.
 
@@ -213,49 +214,20 @@ The installer never:
 
 # Installer Components
 
-| Script       | Purpose                                |
-| ------------ | -------------------------------------- |
-| install.sh   | Install or repair dashboard deployment |
-| bootstrap.sh | Validate deployment health             |
-| uninstall.sh | Safe dashboard removal                 |
+| Command                   | Purpose                                     |
+| ------------------------- | ------------------------------------------- |
+| sudo ./install.sh         | Install or repair dashboard deployment      |
+| sudo ./install.sh --check | Check deployment health (changes nothing)   |
+| uninstall.sh              | Safe dashboard removal                      |
 
----
+The health check verifies the virtual environment's Python version, settings.json (dashboard URL and admin password), the dashboard public key and the systemd service.
 
-## install.sh
+To change the admin password later:
 
-Responsibilities:
-
-* Service account creation
-* SSH key management
-* Configuration management
-* Virtual environment creation
-* Dependency installation
-* Systemd service deployment
-* Runtime validation
-* Bootstrap execution
-
----
-
-## bootstrap.sh
-
-Validation only.
-
-The bootstrap script never modifies the system.
-
-It validates:
-
-* Python version
-* pip
-* requirements.txt
-* sqlite3
-* ssh-keygen
-* Inventory configuration
-* Registration token database
-* settings.json
-* Dashboard public key
-* Virtual environment
-* Systemd service installation
-* Systemd service health
+```bash
+sudo venv/bin/python run.py set-password
+sudo systemctl restart linux-patch-dashboard
+```
 
 ---
 
@@ -284,12 +256,24 @@ Example:
 ```json
 {
     "dashboard_url": "http://192.168.110.128:5000",
-    "inventory_file": "inventory/servers.json",
-    "token_file": "security/registration_tokens.json",
+    "data_dir": "/var/lib/patchdashboard",
     "public_key_file": "/var/lib/patchdashboard/.ssh/id_ed25519.pub",
-    "dashboard_refresh_seconds": 30
+    "admin_user": "admin",
+    "admin_password_hash": "<set by run.py set-password>",
+    "dashboard_refresh_seconds": 30,
+    "collect_interval_seconds": 300
 }
 ```
+
+| Setting                   | Meaning                                                        |
+| ------------------------- | -------------------------------------------------------------- |
+| data_dir                  | Holds servers.json, registration_tokens.json and telemetry.db  |
+| admin_user                | Username for logging in to the dashboard                       |
+| admin_password_hash       | Password hash, written by `run.py set-password`                |
+| dashboard_refresh_seconds | How often dashboard pages reload in the browser                |
+| collect_interval_seconds  | How often the dashboard collects from all nodes in background  |
+
+Every page requires the admin login except `/public-key` and `/api/register`, which managed nodes call during registration (registration still needs a one-time token). The login is sent over plain HTTP unless you put the dashboard behind an HTTPS reverse proxy, which is recommended.
 
 ---
 
@@ -303,7 +287,7 @@ Open:
 http://<dashboard-server-ip>:5000/generate-token
 ```
 
-Copy the generated token.
+Copy the generated token, and note the SSH key fingerprint shown under it.
 
 ---
 
@@ -347,36 +331,32 @@ The script automatically detects:
 
 The script:
 
-1. Downloads dashboard public key.
-2. Updates authorized_keys.
-3. Registers node.
-4. Updates dashboard inventory.
+1. Downloads the dashboard public key and shows its fingerprint.
+2. Asks you to confirm it matches the fingerprint on the token page.
+3. Adds the key to authorized_keys (once, even if run again).
+4. Registers the node in the dashboard inventory.
 
 No manual SSH-user configuration is required.
+
+The first time the dashboard connects to a node it remembers the node's SSH host key. If a node is rebuilt and its host key changes, collection fails until you remove the old key on the dashboard server:
+
+```bash
+sudo -u patchdashboard ssh-keygen -R <managed-node-ip>
+```
 
 ---
 
 # Collecting Telemetry
 
-Manual collection:
+The dashboard collects from every node in the background every `collect_interval_seconds` (5 minutes by default), checking up to 10 nodes in parallel. Pages show the latest collected data, so they load instantly.
+
+To collect immediately:
 
 ```bash
-source venv/bin/activate
-
-python collector.py
+sudo -u patchdashboard venv/bin/python collector.py
 ```
 
-Telemetry is collected from:
-
-```text
-inventory/servers.json
-```
-
-Results are stored in:
-
-```text
-telemetry.db
-```
+Nodes are read from `servers.json` and results are stored in `telemetry.db`, both in `data_dir`.
 
 ---
 
@@ -390,6 +370,7 @@ telemetry.db
 | /offline         | Offline Nodes                 |
 | /node/<hostname> | Node Details                  |
 | /generate-token  | Registration Token Generation |
+| /documentation/  | Documentation Center          |
 
 ---
 
@@ -420,7 +401,7 @@ sudo journalctl -u linux-patch-dashboard.service -f
 Remove the node from:
 
 ```text
-inventory/servers.json
+/var/lib/patchdashboard/servers.json
 ```
 
 Optional telemetry cleanup:
@@ -447,7 +428,7 @@ on the managed node.
 ## Validate Deployment
 
 ```bash
-./bootstrap.sh
+sudo ./install.sh --check
 ```
 
 ---
@@ -470,8 +451,10 @@ sudo journalctl -u linux-patch-dashboard.service -f
 
 ## Test SSH Connectivity
 
+Run it as the dashboard's service account, which owns the SSH key:
+
 ```bash
-ssh <user>@<managed-node-ip> hostname
+sudo -u patchdashboard ssh <user>@<managed-node-ip> hostname
 ```
 
 ---
@@ -487,7 +470,7 @@ curl http://127.0.0.1:5000/public-key
 ## View Telemetry Database
 
 ```bash
-sqlite3 telemetry.db
+sudo sqlite3 /var/lib/patchdashboard/telemetry.db
 ```
 
 Example:

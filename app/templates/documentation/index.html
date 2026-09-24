@@ -1,282 +1,44 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
+{% block title %}{{ product.name }} Documentation{% endblock %}
+{% block tagline %}Documentation{% endblock %}
 
-    <meta charset="UTF-8">
+{% block content %}
+    <h2 class="section-title">Documentation Center</h2>
 
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    <title>{{ product.name }} Documentation</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
-
-</head>
-
-<body>
-
-    <div class="navbar">
-
-        <div class="nav-title">
-
-            {{ product.name }}
-
-        </div>
-
-        <div class="nav-links">
-
-            <a href="/">Dashboard</a>
-
-            <a href="/history">History</a>
-
-            <a href="/documentation">Documentation</a>
-
-            <a href="/about">About</a>
-
-        </div>
-
+    <div class="card">
+        <h2>{{ product.name }}</h2>
+        <p><strong>{{ product.tagline }}</strong></p>
+        <p>
+            Welcome to the {{ product.name }} Documentation Center. Here you will find
+            everything required to install, configure, administer and extend {{ product.name }}.
+        </p>
+        <p>
+            <strong>Edition:</strong> {{ product.edition }}<br>
+            <strong>Version:</strong> {{ product.version }}<br>
+            <strong>Codename:</strong> {{ product.codename }}
+        </p>
     </div>
 
-    <div class="container">
-
-        <h2 class="section-title">
-            Documentation Center
-        </h2>
-
-        <div class="card">
-
-            <h2>{{ product.name }}</h2>
-
-            <p>
-                <strong>{{ product.tagline }}</strong>
-            </p>
-
-            <p>
-                Welcome to the Patchli Documentation Center.
-                Here you will find everything required to install,
-                configure, administer and extend Patchli.
-            </p>
-
-            <p>
-
-                <strong>Edition:</strong>
-                {{ product.edition }}
-
-                <br>
-
-                <strong>Version:</strong>
-                {{ product.version }}
-
-                <br>
-
-                <strong>Codename:</strong>
-                {{ product.codename }}
-
-            </p>
-
-        </div>
-
-        <div class="card">
-
-            <h2>Documentation Categories</h2>
-
-            <table>
-
-                <tr>
-
-                    <th>Category</th>
-
-                    <th>Description</th>
-
-                </tr>
-
-                <tr>
-
-                    <td>
-
-                        <a href="/documentation/getting-started">
-
-                            📘 Getting Started
-
-                        </a>
-
-                    </td>
-
-                    <td>
-
-                        Learn Patchli and complete your first deployment.
-
-                    </td>
-
-                </tr>
-
-                <tr>
-
-                    <td>
-
-                        <a href="/documentation/administration">
-
-                            ⚙ Administration
-
-                        </a>
-
-                    </td>
-
-                    <td>
-
-                        Configure and manage your Patchli deployment.
-
-                    </td>
-
-                </tr>
-
-                <tr>
-
-                    <td>
-
-                        <a href="/documentation/architecture">
-
-                            🏗 Architecture
-
-                        </a>
-
-                    </td>
-
-                    <td>
-
-                        Understand Patchli's internal architecture and design.
-
-                    </td>
-
-                </tr>
-
-                <tr>
-
-                    <td>
-
-                        <a href="/documentation/troubleshooting">
-
-                            🩺 Troubleshooting
-
-                        </a>
-
-                    </td>
-
-                    <td>
-
-                        Resolve common deployment and operational issues.
-
-                    </td>
-
-                </tr>
-
-                <tr>
-
-                    <td>
-
-                        <a href="/documentation/faq">
-
-                            ❓ Frequently Asked Questions
-
-                        </a>
-
-                    </td>
-
-                    <td>
-
-                        Answers to common Patchli questions.
-
-                    </td>
-
-                </tr>
-
-                <tr>
-
-                    <td>
-
-                        <a href="/documentation/roadmap">
-
-                            🛣 Roadmap
-
-                        </a>
-
-                    </td>
-
-                    <td>
-
-                        Discover the future direction of Patchli.
-
-                    </td>
-
-                </tr>
-
-                <tr>
-
-                    <td>
-
-                        <a href="/documentation/release-notes">
-
-                            📝 Release Notes
-
-                        </a>
-
-                    </td>
-
-                    <td>
-
-                        Learn what has changed in each release.
-
-                    </td>
-
-                </tr>
-
-            </table>
-
-        </div>
-
-        <div class="card">
-
-            <h2>Product Information</h2>
-
-            <ul>
-
-                <li>
-
-                    <strong>Maintainer:</strong>
-
-                    {{ product.maintainer }}
-
-                </li>
-
-                <li>
-
-                    <strong>License:</strong>
-
-                    {{ product.license }}
-
-                </li>
-
-                <li>
-
-                    <strong>GitHub:</strong>
-
-                    <a href="{{ product.github }}"
-                       target="_blank">
-
-                        {{ product.github }}
-
-                    </a>
-
-                </li>
-
-            </ul>
-
-        </div>
-
+    <div class="card">
+        <h2>Documentation Categories</h2>
+        <table>
+            <tr><th>Category</th><th>Description</th></tr>
+            {% for slug, (icon, title, _, description) in docs.items() %}
+            <tr>
+                <td><a href="/documentation/{{ slug }}">{{ icon }} {{ title }}</a></td>
+                <td>{{ description }}</td>
+            </tr>
+            {% endfor %}
+        </table>
     </div>
 
-</body>
-
-</html>
+    <div class="card">
+        <h2>Product Information</h2>
+        <ul>
+            <li><strong>Maintainer:</strong> {{ product.maintainer }}</li>
+            <li><strong>License:</strong> {{ product.license }}</li>
+            <li><strong>GitHub:</strong> <a href="{{ product.github }}" target="_blank" rel="noopener">{{ product.github }}</a></li>
+        </ul>
+    </div>
+{% endblock %}

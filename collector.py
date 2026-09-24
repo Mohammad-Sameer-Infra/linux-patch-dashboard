@@ -1,30 +1,7 @@
-from app.inventory import (
-    load_servers,
-    update_last_seen
-)
-from app.remote_info import get_remote_system_info
-from app.database import insert_telemetry
+"""Collect telemetry from every node once. The dashboard also does this on a timer."""
 
-def main():
-
-    servers = load_servers()
-
-    for server in servers:
-
-        remote_data = get_remote_system_info(server)
-
-        insert_telemetry(remote_data)
-
-        if remote_data["status"] == "Online":
-
-            update_last_seen(
-                server["hostname"]
-            )
-
-        print(
-            f"Collected telemetry from "
-            f"{server['hostname']}"
-        )
+from app.collect import collect_all
 
 if __name__ == "__main__":
-    main()
+    for snapshot in collect_all():
+        print(f"{snapshot['hostname']}: {snapshot['status']}, {snapshot['updates']} updates")

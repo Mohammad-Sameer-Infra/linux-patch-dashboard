@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="{{ refresh_seconds }}">{% endblock %}
+{% block tagline %}{{ title }}{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <h2>{{ title }}</h2>
+        <table>
+            <tr>
+                <th>Hostname</th>
+                <th>IP</th>
+                <th>OS</th>
+                <th>Updates</th>
+                <th>Status</th>
+                <th>Last Check</th>
+            </tr>
+            {% for server in nodes %}
+            <tr>
+                <td><a href="/node/{{ server.hostname }}" class="node-link">{{ server.hostname }}</a></td>
+                <td>{{ server.ip }}</td>
+                <td>{{ server.os }}</td>
+                <td>{{ server.updates }}</td>
+                <td>{{ status_badge(server.status) }}</td>
+                <td>{{ server.last_check }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+{% endblock %}

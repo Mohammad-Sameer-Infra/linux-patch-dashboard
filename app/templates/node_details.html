@@ -1,303 +1,59 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, level %}
 
-<head>
+{% block title %}{{ server.hostname }}{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="{{ refresh_seconds }}">{% endblock %}
+{% block tagline %}Node Details{% endblock %}
 
-    <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    <title>Node Details</title>
-
-    <meta http-equiv="refresh" content="30">
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
-
-</head>
-
-<body>
-
-    <div class="navbar">
-
-        <div class="nav-title">
-            Node Details
-        </div>
-
-        <div class="nav-links">
-
-            <a href="/">Dashboard</a>
-
-            <a href="/history">History</a>
-
-	    <a href="/documentation">Documentation</a>
-
-	    <a href="/about">About</a>
-
-            <a href="/online">Online</a>
-
-            <a href="/offline">Offline</a>
-
-        </div>
-
+{% block content %}
+    <div class="card">
+        <h2>{{ server.hostname }}</h2>
+        <table>
+            <tr><th>Property</th><th>Value</th></tr>
+            <tr><td>Hostname</td><td>{{ server.hostname }}</td></tr>
+            <tr><td>IP Address</td><td>{{ server.ip }}</td></tr>
+            <tr><td>Node ID</td><td>{{ server.node_id }}</td></tr>
+            <tr>
+                <td>State</td>
+                <td><span class="{{ 'status-online' if server.state == 'active' else 'status-offline' }}">{{ server.state }}</span></td>
+            </tr>
+            <tr><td>Registered At</td><td>{{ server.registered_at }}</td></tr>
+            <tr><td>Last Seen Online</td><td>{{ server.last_seen or "Never" }}</td></tr>
+            <tr><td>Operating System</td><td>{{ server.os }}</td></tr>
+            <tr><td>Uptime</td><td>{{ server.uptime }}</td></tr>
+            <tr><td>Status</td><td>{{ status_badge(server.status) }}</td></tr>
+            <tr><td>Last Check</td><td>{{ server.last_check }}</td></tr>
+            <tr>
+                <td>Patch Status</td>
+                <td>
+                    {% if server.status != "Online" %}
+                        <span class="status-offline">No current data (node is {{ server.status | lower }})</span>
+                    {% elif server.updates == 0 %}
+                        <span class="status-online">✓ System Fully Patched</span>
+                    {% else %}
+                        <span class="status-offline">{{ server.updates }} Pending Updates</span>
+                    {% endif %}
+                </td>
+            </tr>
+        </table>
     </div>
 
-    <div class="container">
-
-        <div class="card">
-
-            <h2>{{ server.hostname }}</h2>
-
-            <table>
-
-                <tr>
-                    <th>Property</th>
-                    <th>Value</th>
-                </tr>
-
-                <tr>
-                    <td>Hostname</td>
-                    <td>{{ server.hostname }}</td>
-                </tr>
-
-                <tr>
-                    <td>IP Address</td>
-                    <td>{{ server.ip }}</td>
-                </tr>
-
-		<tr>
-    			<td>Node ID</td>
-    			<td>{{ server.node_id }}</td>
-		</tr>
-
-		<tr>
-    			<td>State</td>
-
-    			<td>
-
-        			{% if server.state == "active" %}
-
-            				<span class="status-online">
-                				{{ server.state }}
-            				</span>
-
-        			{% else %}
-
-            				<span class="status-offline">
-                				{{ server.state }}
-            				</span>
-
-        			{% endif %}
-
-    			</td>
-
-		</tr>
-
-		<tr>
-    			<td>Registered At</td>
-    			<td>{{ server.registered_at }}</td>
-		</tr>
-
-		<tr>
-    			<td>Last Seen</td>
-    			<td>{{ server.last_seen }}</td>
-		</tr>
-
-                <tr>
-                    <td>Operating System</td>
-                    <td>{{ server.os }}</td>
-                </tr>
-
-                <tr>
-                    <td>Uptime</td>
-                    <td>{{ server.uptime }}</td>
-                </tr>
-
-                <tr>
-                    <td>Pending Updates</td>
-                    <td>{{ server.updates }}</td>
-                </tr>
-
-                <tr>
-                    <td>Status</td>
-
-                    <td>
-
-                        {% if server.status == "Online" %}
-
-                            <span class="status-online">
-                                {{ server.status }}
-                            </span>
-
-                        {% else %}
-
-                            <span class="status-offline">
-                                {{ server.status }}
-                            </span>
-
-                        {% endif %}
-
-                    </td>
-
-                </tr>
-
-                <tr>
-                    <td>Last Check</td>
-                    <td>{{ server.last_check }}</td>
-		</tr>
-
-		<tr>
-    		    <td>Patch Status</td>
-
-    		    <td>
-
-        		{% if server.updates == 0 %}
-
-            			<span class="status-online">
-                			✓ System Fully Patched
-            			</span>
-
-        		{% else %}
-
-            			<span class="status-offline">
-                			{{ server.updates }} Pending Updates
-            			</span>
-
-        		{% endif %}
-
-    		     </td>
-
-		</tr>
-
-
-            </table>
-
+    <div class="card">
+        <h2>Patch Summary</h2>
+        <div class="metrics">
+            {% for path, label, count in [
+                ("all-updates", "Total Updates", server.updates),
+                ("kernel-updates", "Kernel Updates", server.kernel_updates),
+                ("security-updates", "Security Updates", server.security_updates),
+                ("critical-packages", "Critical Packages", server.critical_packages),
+            ] %}
+            <a href="/node/{{ server.hostname }}/{{ path }}" class="metric-link">
+                <div class="metric-card metric-{{ level(count) }}">
+                    <h3>{{ label }}</h3>
+                    <p>{{ count }}</p>
+                </div>
+            </a>
+            {% endfor %}
         </div>
-	
-	<div class="card">
-
-    		<h2>Patch Summary</h2>
-
-    		<div class="metrics">
-
-        		<a href="/node/{{ server.hostname }}/all-updates"
-           		   class="metric-link">
-
-			<div class="metric-card
-
-			{% if server.updates == 0 %}
-
-    				metric-good
-
-			{% elif server.updates <= 5 %}
-
-    				metric-warning
-
-			{% else %}
-
-    				metric-critical
-
-			{% endif %}
-			">
-
-    				<h3>Total Updates</h3>
-
-	    			<p>{{ server.updates }}</p>
-
-		</div>
-        		</a>
-
-			<a href="/node/{{ server.hostname }}/kernel-updates"
-   			   class="metric-link">
-
-        			<div class="metric-card
-					
-				{% if server.kernel_updates == 0 %}
-
-    					metric-good
-
-				{% elif server.kernel_updates <= 5 %}
-
-    					metric-warning
-
-				{% else %}
-
-    					metric-critical
-
-				{% endif %}
-			">
-
-                			<h3>Kernel Updates</h3>
-
-                			<p>{{ server.kernel_updates }}</p>
-
-        			</div>
-
-			</a>
-
-        		<a href="/node/{{ server.hostname }}/security-updates"
-           		   class="metric-link">
-
-            			<div class="metric-card
-		
-				{% if server.security_updates == 0 %}
-		
-    					metric-good
-
-				{% elif server.security_updates <= 5 %}
-	
-    					metric-warning
-
-				{% else %}	
-
-    					metric-critical
-
-				{% endif %}
-				">
-
-                			<h3>Security Packages</h3>
-
-                			<p>{{ server.security_updates }}</p>
-
-            			</div>
-
-        		</a>
-
-        		<a href="/node/{{ server.hostname }}/critical-packages"
-           		class="metric-link">
-
-            			<div class="metric-card
-				
-				{% if server.critical_packages == 0 %}
-
-    					metric-good
-
-				{% elif server.critical_packages <= 5 %}
-
-    					metric-warning
-
-				{% else %}
-
-    					metric-critical
-
-				{% endif %}
-				">
-
-                			<h3>Critical Packages</h3>
-
-                			<p>{{ server.critical_packages }}</p>
-
-            			</div>
-
-        		</a>
-
-    		</div>
-
-	</div>
-
     </div>
-
-</body>
-
-</html>
+{% endblock %}

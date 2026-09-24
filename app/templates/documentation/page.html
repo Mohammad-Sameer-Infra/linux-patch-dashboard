@@ -1,58 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
+{% block title %}{{ title }}{% endblock %}
+{% block tagline %}Documentation{% endblock %}
 
-<meta charset="UTF-8">
-
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
-
-<title>{{ title }}</title>
-
-<link rel="stylesheet"
-      href="{{ url_for('static', filename='style.css') }}">
-
-</head>
-
-<body>
-
-<div class="navbar">
-
-<div class="nav-title">
-
-<strong>{{ product.name }}</strong>
-
-<div class="product-tagline">
-
-Documentation
-
-</div>
-
-</div>
-
-<div class="nav-links">
-
-<a href="/">Dashboard</a>
-
-<a href="/history">History</a>
-
-<a href="/documentation">Documentation</a>
-
-</div>
-
-</div>
-
-<div class="container">
-
-<div class="card">
-
-{{ content|safe }}
-
-</div>
-
-</div>
-
-</body>
-
-</html>
+{% block content %}
+    <div class="card">
+        {# Rendered from the Markdown files shipped in docs/, not user input. #}
+        {{ content | safe }}
+    </div>
+{% endblock %}

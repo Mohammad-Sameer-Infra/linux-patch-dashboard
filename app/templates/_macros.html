@@ -1,0 +1,8 @@
+{% macro status_badge(status) -%}
+    <span class="{{ 'status-online' if status == 'Online' else 'status-offline' }}">{{ status }}</span>
+{%- endmacro %}
+
+{# Green for 0, amber up to 5, red above. #}
+{% macro level(count) -%}
+    {{ 'good' if count == 0 else 'warning' if count <= 5 else 'critical' }}
+{%- endmacro %}
