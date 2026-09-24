@@ -257,6 +257,7 @@ Run these on the dashboard server, from `/opt/linux-patch-dashboard`.
 | Task | Command |
 | --- | --- |
 | Check the installation | `sudo ./install.sh --check` |
+| Uninstall | `sudo ./uninstall.sh` ([details](#uninstalling)) |
 | Service status | `sudo systemctl status linux-patch-dashboard` |
 | Restart | `sudo systemctl restart linux-patch-dashboard` |
 | Follow the logs | `sudo journalctl -u linux-patch-dashboard -f` |
@@ -415,23 +416,40 @@ The installer updates the dependencies and restarts the service. Your nodes, his
 
 ## Uninstalling
 
-`uninstall.sh` is not implemented yet. To remove Patchli by hand:
+Both options below show what will be removed and ask you to type `yes` before changing anything.
+
+### Remove the service, keep your data
 
 ```bash
-sudo systemctl disable --now linux-patch-dashboard
-sudo rm /etc/systemd/system/linux-patch-dashboard.service
-sudo systemctl daemon-reload
-sudo rm -rf /opt/linux-patch-dashboard
+cd /opt/linux-patch-dashboard
+sudo ./uninstall.sh
 ```
 
-The commands below permanently delete your nodes, history and the dashboard's SSH key. Back up `/var/lib/patchdashboard` first if you might need them:
+This stops and removes the `linux-patch-dashboard` service and deletes the `venv/` folder. Your nodes, history, SSH key, settings and the `/opt/linux-patch-dashboard` folder are kept, so `sudo ./install.sh` brings everything back as it was.
+
+### Remove everything
 
 ```bash
-sudo userdel patchdashboard
-sudo rm -rf /var/lib/patchdashboard
+cd /opt/linux-patch-dashboard
+sudo ./uninstall.sh --purge
 ```
 
-On each managed node, remove the dashboard's key from `~/.ssh/authorized_keys`.
+This also:
+
+1. Saves a backup of `/var/lib/patchdashboard` and `settings.json` to `/root/patchli-backup-<date>.tar.gz`. The file is readable only by root, because it contains the dashboard's private SSH key.
+2. Permanently deletes `/var/lib/patchdashboard` (nodes, history, dashboard SSH key).
+3. Deletes the `patchdashboard` service account.
+4. Deletes `/opt/linux-patch-dashboard`.
+5. Lists your managed nodes. On each one, remove the line ending in `patchdashboard@…` from that user's `~/.ssh/authorized_keys`.
+
+| Option | Effect |
+| --- | --- |
+| `--purge` | Remove everything, as above |
+| `--no-backup` | With `--purge`: don't save a backup |
+| `--yes` | Don't ask for confirmation (for scripts) |
+| `--help` | Show usage |
+
+To restore from a backup: reinstall Patchli ([Install the dashboard](#install-the-dashboard)), stop the service, extract the backup with `sudo tar -xzf /root/patchli-backup-<date>.tar.gz -C /`, make the data folder owned by the service account with `sudo chown -R patchdashboard:patchdashboard /var/lib/patchdashboard`, then start the service again.
 
 ---
 
@@ -441,12 +459,11 @@ On each managed node, remove the dashboard's key from `~/.ssh/authorized_keys`.
 
 * v1.0: registration workflow, collection, online/offline monitoring, history
 * v1.1: installer, virtual environment, service account, systemd service
-* Next release (in progress): dashboard login, hardened registration and SSH, scheduled background collection, accurate security classification, one SSH session per node, built-in documentation, simpler codebase
+* Next release (in progress): dashboard login, hardened registration and SSH, scheduled background collection, accurate security classification, one SSH session per node, built-in documentation, `uninstall.sh`, simpler codebase
 
 **Planned**
 
 * Node removal from the web interface, node retirement and history cleanup
-* `uninstall.sh`
 * Ansible integration and patch orchestration
 * Compliance reporting and trend analysis
 * AI-assisted recommendations
