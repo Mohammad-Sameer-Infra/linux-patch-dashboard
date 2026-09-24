@@ -1,73 +1,70 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_badge, level %}
+{% from "_macros.html" import icon, tile, node_table, search_box, POSTURE %}
 
+{% block title %}Overview{% endblock %}
 {% block head %}<meta http-equiv="refresh" content="{{ refresh_seconds }}">{% endblock %}
 
-{% block nav_extra %}
-    <div class="last-updated">Last Updated: {{ last_updated }}</div>
-{% endblock %}
-
 {% block content %}
-    <h2 class="section-title">Infrastructure Overview</h2>
+<header class="page-head">
+    <div>
+        <h1>Overview</h1>
+        <p>Patch status across {{ nodes | length }} managed node{{ "s" if nodes | length != 1 }}</p>
+    </div>
+    <span class="meta" title="{{ last_updated or '' }}">
+        {{ icon("refresh", 14) }}
+        {% if last_updated %}Last collected {{ last_updated | ago }}{% else %}No data collected yet{% endif %}
+    </span>
+</header>
 
-    <div class="metrics">
-        <div class="metric-card">
-            <h3>Total Nodes</h3>
-            <p>{{ nodes | length }}</p>
+<section class="tiles" aria-label="Fleet summary">
+    {{ tile("Nodes online", online_nodes ~ " / " ~ nodes | length, "server", "good",
+            sub=(offline_nodes ~ " offline") if offline_nodes else "All reachable", href="/online") }}
+    {{ tile("Pending updates", totals.updates, "package", "warning", sub="Across all nodes") }}
+    {{ tile("Security updates", totals.security_updates, "shield", "critical", sub="From security advisories") }}
+    {{ tile("Kernel updates", totals.kernel_updates, "kernel", "serious", sub="Reboot usually required") }}
+    {{ tile("Critical packages", totals.critical_packages, "critical", "serious", sub="Kernel, OpenSSL, OpenSSH, sudo…") }}
+</section>
+
+{% if postures %}
+<section class="card" aria-labelledby="health-title">
+    <div class="card-head">
+        <div>
+            <h2 id="health-title">Fleet health</h2>
+            <p>Each node counted once, by its most urgent state</p>
         </div>
-        <a href="/online" class="metric-link">
-            <div class="metric-card metric-good">
-                <h3>Online Nodes</h3>
-                <p>{{ online_nodes }}</p>
-            </div>
-        </a>
-        <a href="/offline" class="metric-link">
-            <div class="metric-card metric-critical">
-                <h3>Offline Nodes</h3>
-                <p>{{ offline_nodes }}</p>
-            </div>
-        </a>
     </div>
-
-    <div class="card">
-        <h2>Dashboard Server</h2>
-        <ul>
-            <li><strong>Hostname:</strong> {{ system_info.hostname }}</li>
-            <li><strong>OS:</strong> {{ system_info.os_info }}</li>
-            <li><strong>Kernel:</strong> {{ system_info.kernel }}</li>
-            <li><strong>Uptime:</strong> {{ system_info.uptime }}</li>
-        </ul>
+    <div class="health-bar" role="img"
+         aria-label="{% for p, n in postures %}{{ POSTURE[p][2] }}: {{ n }}{{ ', ' if not loop.last }}{% endfor %}">
+        {% for p, n in postures %}
+        <div class="health-seg tone-{{ POSTURE[p][0] }}" style="flex: {{ n }}" title="{{ POSTURE[p][2] }}: {{ n }}"></div>
+        {% endfor %}
     </div>
+    <ul class="legend">
+        {% for p, n in postures %}
+        <li class="tone-{{ POSTURE[p][0] }}"><span class="swatch"></span>{{ POSTURE[p][2] }} <strong>{{ n }}</strong></li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
 
-    <div class="card">
-        <h2 class="section-title">Managed Nodes</h2>
-        <div class="table-toolbar">
-            <input type="text" class="search-box" data-rows=".searchable-row"
-                   placeholder="Search by hostname, IP, OS or status">
+<section class="card flush" aria-labelledby="nodes-title">
+    <div class="card-head">
+        <div>
+            <h2 id="nodes-title">Managed nodes</h2>
+            <p>Click a node to see its packages and update history</p>
         </div>
-
-        <table>
-            <tr>
-                <th>Hostname</th>
-                <th>IP</th>
-                <th>OS</th>
-                <th>Uptime</th>
-                <th>Updates</th>
-                <th>Status</th>
-                <th>Last Check</th>
-            </tr>
-            {% for server in nodes %}
-            <tr class="node-row searchable-row"
-                onclick="window.location.href='/node/{{ server.hostname }}'">
-                <td><a href="/node/{{ server.hostname }}" class="node-link">{{ server.hostname }}</a></td>
-                <td>{{ server.ip }}</td>
-                <td>{{ server.os }}</td>
-                <td>{{ server.uptime }}</td>
-                <td><span class="badge-{{ level(server.updates) }}">{{ server.updates }}</span></td>
-                <td>{{ status_badge(server.status) }}</td>
-                <td>{{ server.last_check }}</td>
-            </tr>
-            {% endfor %}
-        </table>
+        {% if nodes %}{{ search_box(".node-row", "Search nodes, IPs or OS") }}{% endif %}
     </div>
+    {{ node_table(nodes) }}
+</section>
+
+<section class="card" aria-labelledby="server-title">
+    <div class="card-head"><h2 id="server-title">Dashboard server</h2></div>
+    <dl class="details">
+        <dt>Hostname</dt><dd>{{ system_info.hostname }}</dd>
+        <dt>Operating system</dt><dd>{{ system_info.os_info }}</dd>
+        <dt>Kernel</dt><dd>{{ system_info.kernel }}</dd>
+        <dt>Uptime</dt><dd>{{ system_info.uptime }}</dd>
+    </dl>
+</section>
 {% endblock %}

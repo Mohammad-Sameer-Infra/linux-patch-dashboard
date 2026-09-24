@@ -3,6 +3,8 @@
 import platform
 import socket
 import subprocess
+from collections import Counter
+from datetime import datetime
 
 from flask import Response, abort, jsonify, render_template, request
 
@@ -14,22 +16,38 @@ NOT_COLLECTED = {
     "last_check": "Never", "last_seen": None, "packages": [],
 }
 
-# URL segment: (page title, package flag to filter on)
+# Worst first: the order of the fleet health bar and its legend.
+POSTURES = ["security", "updates", "current", "offline", "pending"]
+
+# Old package-list URLs open the node page with that filter selected.
 CATEGORIES = {
-    "all-updates": ("All Updates", None),
-    "kernel-updates": ("Kernel Updates", "kernel"),
-    "security-updates": ("Security Updates", "security"),
-    "critical-packages": ("Critical Packages", "critical"),
+    "all-updates": "all",
+    "kernel-updates": "kernel",
+    "security-updates": "security",
+    "critical-packages": "critical",
 }
+
+
+def posture(node):
+    """One word for a node's patch state, used for its status pill."""
+    if node["status"] == "Offline":
+        return "offline"
+    if node["status"] != "Online":
+        return "pending"
+    if node["security_updates"]:
+        return "security"
+    return "updates" if node["updates"] else "current"
 
 
 def get_nodes():
     """Every inventory node merged with its latest snapshot."""
     latest = store.latest_snapshots()
-    return [
-        {**NOT_COLLECTED, **latest.get(server["hostname"], {}), **server}
-        for server in store.load_servers()
-    ]
+    nodes = []
+    for server in store.load_servers():
+        node = {**NOT_COLLECTED, **latest.get(server["hostname"], {}), **server}
+        node["posture"] = posture(node)
+        nodes.append(node)
+    return nodes
 
 
 def find_node(hostname):
@@ -69,17 +87,37 @@ def key_fingerprint():
     return output[1] if len(output) > 1 else "unavailable"
 
 
+@app.template_filter("ago")
+def ago(timestamp):
+    """ "2026-09-24 10:00:00" -> "5 min ago"."""
+    try:
+        then = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError):
+        return timestamp or "Never"
+    seconds = int((datetime.now() - then).total_seconds())
+    for unit, size in (("day", 86400), ("hr", 3600), ("min", 60)):
+        if seconds >= size:
+            return f"{seconds // size} {unit} ago"
+    return "just now"
+
+
 @app.route("/")
 def home():
     nodes = get_nodes()
     checks = [n["last_check"] for n in nodes if n["last_check"] != "Never"]
+    postures = Counter(n["posture"] for n in nodes)
     return render_template(
         "index.html",
         nodes=nodes,
         system_info=dashboard_server(),
+        postures=[(p, postures[p]) for p in POSTURES if postures[p]],
+        totals={
+            key: sum(n[key] for n in nodes)
+            for key in ("updates", "security_updates", "kernel_updates", "critical_packages")
+        },
         online_nodes=sum(n["status"] == "Online" for n in nodes),
         offline_nodes=sum(n["status"] == "Offline" for n in nodes),
-        last_updated=max(checks, default="No Data"),
+        last_updated=max(checks, default=None),
     )
 
 
@@ -89,7 +127,7 @@ def nodes_by_status():
     status = request.path.strip("/").capitalize()
     return render_template(
         "nodes.html",
-        title=f"{status} Nodes",
+        title=f"{status} nodes",
         nodes=[n for n in get_nodes() if n["status"] == status],
     )
 
@@ -100,20 +138,21 @@ def history():
 
 
 @app.route("/node/<hostname>")
-def node_details(hostname):
-    return render_template("node_details.html", server=find_node(hostname))
+def node_details(hostname, category="all"):
+    node = find_node(hostname)
+    return render_template(
+        "node_details.html",
+        server=node,
+        history=store.node_history(hostname),
+        category=category,
+    )
 
 
 @app.route("/node/<hostname>/<category>")
 def package_details(hostname, category):
     if category not in CATEGORIES:
         abort(404)
-    title, flag = CATEGORIES[category]
-    node = find_node(hostname)
-    packages = [p["line"] for p in node["packages"] if flag is None or p[flag]]
-    return render_template(
-        "package_details.html", hostname=hostname, title=title, packages=packages,
-    )
+    return node_details(hostname, CATEGORIES[category])
 
 
 @app.route("/generate-token")

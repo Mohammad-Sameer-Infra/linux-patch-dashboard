@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 
 {% block title %}{{ title }}{% endblock %}
-{% block tagline %}Documentation{% endblock %}
 
 {% block content %}
-    <div class="card">
-        {# Rendered from the Markdown files shipped in docs/, not user input. #}
-        {{ content | safe }}
-    </div>
+<a class="back" href="/documentation/">{{ icon("back", 14) }}Documentation</a>
+<article class="card prose">
+    {# Rendered from the Markdown files shipped in docs/, not user input. #}
+    {{ content | safe }}
+</article>
 {% endblock %}

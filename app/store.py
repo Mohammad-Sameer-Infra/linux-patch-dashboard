@@ -118,6 +118,17 @@ def latest_snapshots():
     return snapshots
 
 
+def node_history(hostname, limit=60):
+    """Oldest-first update counts from a node's recent online collections."""
+    with closing(connect()) as conn:
+        rows = conn.execute(
+            "SELECT last_check, updates, security_updates FROM telemetry "
+            "WHERE hostname = ? AND status = 'Online' ORDER BY id DESC LIMIT ?",
+            (hostname, limit),
+        ).fetchall()
+    return [dict(row) for row in reversed(rows)]
+
+
 def telemetry_history(limit=500):
     with closing(connect()) as conn:
         return conn.execute(
