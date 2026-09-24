@@ -1,40 +1,61 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_badge %}
+{% from "_macros.html" import status_pill, count, search_box %}
 
-{% block title %}{{ product.name }} - History{% endblock %}
+{% block title %}History{% endblock %}
 {% block head %}<meta http-equiv="refresh" content="{{ refresh_seconds }}">{% endblock %}
-{% block tagline %}Telemetry History{% endblock %}
 
 {% block content %}
-    <div class="card">
-        <h2>Historical Telemetry</h2>
-        <table>
-            <tr>
-                <th>Hostname</th>
-                <th>IP</th>
-                <th>OS</th>
-                <th>Uptime</th>
-                <th>Total Updates</th>
-                <th>Kernel</th>
-                <th>Security</th>
-                <th>Critical</th>
-                <th>Status</th>
-                <th>Last Check</th>
-            </tr>
-            {% for row in telemetry_history %}
-            <tr>
-                <td>{{ row.hostname }}</td>
-                <td>{{ row.ip }}</td>
-                <td>{{ row.os }}</td>
-                <td>{{ row.uptime }}</td>
-                <td>{{ row.updates }}</td>
-                <td>{{ row.kernel_updates }}</td>
-                <td>{{ row.security_updates }}</td>
-                <td>{{ row.critical_packages }}</td>
-                <td>{{ status_badge(row.status) }}</td>
-                <td>{{ row.last_check }}</td>
-            </tr>
-            {% endfor %}
-        </table>
+<header class="page-head">
+    <div>
+        <h1>History</h1>
+        <p>The latest {{ telemetry_history | length }} collection results, newest first</p>
     </div>
+</header>
+
+<section class="card flush">
+    <div class="card-head">
+        <div></div>
+        {% if telemetry_history %}{{ search_box(".history-row", "Search by node, OS or status") }}{% endif %}
+    </div>
+    {% if telemetry_history %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Collected</th>
+                    <th>Node</th>
+                    <th>Status</th>
+                    <th class="num">Updates</th>
+                    <th class="num">Security</th>
+                    <th class="num">Kernel</th>
+                    <th class="num">Critical</th>
+                    <th>OS</th>
+                    <th>Uptime</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in telemetry_history %}
+                <tr class="history-row">
+                    <td title="{{ row.last_check | ago }}">{{ row.last_check }}</td>
+                    <td>
+                        <span class="node-name">{{ row.hostname }}</span>
+                        <span class="node-sub">{{ row.ip }}</span>
+                    </td>
+                    <td>{{ status_pill(row.status) }}</td>
+                    <td class="num">{{ count(row.updates, "warning") }}</td>
+                    <td class="num">{{ count(row.security_updates, "critical") }}</td>
+                    <td class="num">{{ count(row.kernel_updates, "serious") }}</td>
+                    <td class="num">{{ count(row.critical_packages, "serious") }}</td>
+                    <td>{{ row.os }}</td>
+                    <td>{{ row.uptime }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="no-match">No results match your search.</div>
+    </div>
+    {% else %}
+    <div class="empty"><strong>No collections yet</strong><span>Results appear here after the first collection.</span></div>
+    {% endif %}
+</section>
 {% endblock %}

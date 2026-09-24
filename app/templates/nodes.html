@@ -1,32 +1,22 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_badge %}
+{% from "_macros.html" import node_table, search_box %}
 
-{% block title %}{{ title }}{% endblock %}
+{% block title %}{{ title | capitalize }}{% endblock %}
 {% block head %}<meta http-equiv="refresh" content="{{ refresh_seconds }}">{% endblock %}
-{% block tagline %}{{ title }}{% endblock %}
 
 {% block content %}
-    <div class="card">
-        <h2>{{ title }}</h2>
-        <table>
-            <tr>
-                <th>Hostname</th>
-                <th>IP</th>
-                <th>OS</th>
-                <th>Updates</th>
-                <th>Status</th>
-                <th>Last Check</th>
-            </tr>
-            {% for server in nodes %}
-            <tr>
-                <td><a href="/node/{{ server.hostname }}" class="node-link">{{ server.hostname }}</a></td>
-                <td>{{ server.ip }}</td>
-                <td>{{ server.os }}</td>
-                <td>{{ server.updates }}</td>
-                <td>{{ status_badge(server.status) }}</td>
-                <td>{{ server.last_check }}</td>
-            </tr>
-            {% endfor %}
-        </table>
+<header class="page-head">
+    <div>
+        <h1>{{ title | capitalize }}</h1>
+        <p>{{ nodes | length }} node{{ "s" if nodes | length != 1 }}</p>
     </div>
+</header>
+
+<section class="card flush">
+    <div class="card-head">
+        <div></div>
+        {% if nodes %}{{ search_box(".node-row", "Search nodes, IPs or OS") }}{% endif %}
+    </div>
+    {{ node_table(nodes) }}
+</section>
 {% endblock %}

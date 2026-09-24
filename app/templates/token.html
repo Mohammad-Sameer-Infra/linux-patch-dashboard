@@ -1,17 +1,69 @@
 {% extends "base.html" %}
+{% from "_macros.html" import icon %}
 
-{% block title %}Registration Token{% endblock %}
-{% block tagline %}Node Enrollment{% endblock %}
+{% block title %}Add node{% endblock %}
 
 {% block content %}
-    <h2 class="section-title">Registration Token</h2>
-    <div class="card">
-        <p>Use this one-time token to register a Linux node with the dashboard.</p>
-        <div class="token-box">{{ token }}</div>
-        <p>
-            <code>register-node.sh</code> shows the dashboard's SSH key fingerprint before trusting it.
-            Continue only if it matches:
-        </p>
-        <div class="token-box">{{ fingerprint }}</div>
+<header class="page-head">
+    <div>
+        <h1>Add a node</h1>
+        <p>Register a Linux server so the dashboard can collect its patch status</p>
     </div>
+</header>
+
+<div class="grid-2">
+    <section class="card" aria-labelledby="token-title">
+        <div class="card-head">
+            <div>
+                <h2 id="token-title">Registration token</h2>
+                <p>One-time use. Reload this page for another.</p>
+            </div>
+        </div>
+        <div class="secret">
+            <span id="token">{{ token }}</span>
+            <button class="btn" type="button" data-copy="token">{{ icon("copy", 14) }}Copy</button>
+        </div>
+
+        <div class="card-head" style="margin: 24px 0 12px">
+            <div>
+                <h2>Dashboard key fingerprint</h2>
+                <p>The registration script shows this. Continue only if it matches.</p>
+            </div>
+        </div>
+        <div class="secret" style="font-size: 13px"><span>{{ fingerprint }}</span></div>
+    </section>
+
+    <section class="card" aria-labelledby="steps-title">
+        <div class="card-head"><h2 id="steps-title">On the server you want to monitor</h2></div>
+        <ol class="steps">
+            <li>
+                <strong>Copy the registration script</strong> from the dashboard server:
+                <pre class="cmd">scp /opt/linux-patch-dashboard/registration/register-node.sh &lt;user&gt;@&lt;node-ip&gt;:~/</pre>
+            </li>
+            <li>
+                <strong>Run it as a normal user</strong> (not root), the account the dashboard should log in as:
+                <pre class="cmd">chmod +x register-node.sh
+./register-node.sh</pre>
+            </li>
+            <li><strong>Enter the dashboard URL and the token</strong> shown here.</li>
+            <li><strong>Compare the fingerprint</strong> and type <code>y</code> only if it matches the one on this page.</li>
+            <li><strong>Wait a few minutes</strong>: the node shows as <em>Not collected yet</em> until the next collection.</li>
+        </ol>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll("[data-copy]").forEach(function (button) {
+    button.addEventListener("click", function () {
+        const text = document.getElementById(button.dataset.copy).textContent.trim();
+        navigator.clipboard.writeText(text).then(function () {
+            const label = button.lastChild;
+            label.textContent = "Copied";
+            setTimeout(function () { label.textContent = "Copy"; }, 1500);
+        }).catch(function () {});
+    });
+});
+</script>
 {% endblock %}

@@ -1,59 +1,275 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_badge, level %}
+{% from "_macros.html" import icon, tile, posture_pill, search_box %}
 
 {% block title %}{{ server.hostname }}{% endblock %}
-{% block head %}<meta http-equiv="refresh" content="{{ refresh_seconds }}">{% endblock %}
-{% block tagline %}Node Details{% endblock %}
 
 {% block content %}
-    <div class="card">
-        <h2>{{ server.hostname }}</h2>
-        <table>
-            <tr><th>Property</th><th>Value</th></tr>
-            <tr><td>Hostname</td><td>{{ server.hostname }}</td></tr>
-            <tr><td>IP Address</td><td>{{ server.ip }}</td></tr>
-            <tr><td>Node ID</td><td>{{ server.node_id }}</td></tr>
-            <tr>
-                <td>State</td>
-                <td><span class="{{ 'status-online' if server.state == 'active' else 'status-offline' }}">{{ server.state }}</span></td>
-            </tr>
-            <tr><td>Registered At</td><td>{{ server.registered_at }}</td></tr>
-            <tr><td>Last Seen Online</td><td>{{ server.last_seen or "Never" }}</td></tr>
-            <tr><td>Operating System</td><td>{{ server.os }}</td></tr>
-            <tr><td>Uptime</td><td>{{ server.uptime }}</td></tr>
-            <tr><td>Status</td><td>{{ status_badge(server.status) }}</td></tr>
-            <tr><td>Last Check</td><td>{{ server.last_check }}</td></tr>
-            <tr>
-                <td>Patch Status</td>
-                <td>
-                    {% if server.status != "Online" %}
-                        <span class="status-offline">No current data (node is {{ server.status | lower }})</span>
-                    {% elif server.updates == 0 %}
-                        <span class="status-online">✓ System Fully Patched</span>
-                    {% else %}
-                        <span class="status-offline">{{ server.updates }} Pending Updates</span>
-                    {% endif %}
-                </td>
-            </tr>
-        </table>
+{% set packages = server.packages %}
+{% set filters = [
+    ("all", "All updates", server.updates, "package", "warning"),
+    ("security", "Security", server.security_updates, "shield", "critical"),
+    ("kernel", "Kernel", server.kernel_updates, "kernel", "serious"),
+    ("critical", "Critical", server.critical_packages, "critical", "serious"),
+] %}
+<header class="page-head">
+    <div>
+        <a class="back" href="/">{{ icon("back", 14) }}Overview</a>
+        <h1>{{ server.hostname }}</h1>
+        <p>{{ server.ip }}{% if server.os %} · {{ server.os }}{% endif %}</p>
     </div>
+    <div class="toolbar">
+        {{ posture_pill(server.posture) }}
+        <span class="meta" title="{{ server.last_check }}">{{ icon("refresh", 14) }}Checked {{ server.last_check | ago }}</span>
+    </div>
+</header>
 
-    <div class="card">
-        <h2>Patch Summary</h2>
-        <div class="metrics">
-            {% for path, label, count in [
-                ("all-updates", "Total Updates", server.updates),
-                ("kernel-updates", "Kernel Updates", server.kernel_updates),
-                ("security-updates", "Security Updates", server.security_updates),
-                ("critical-packages", "Critical Packages", server.critical_packages),
-            ] %}
-            <a href="/node/{{ server.hostname }}/{{ path }}" class="metric-link">
-                <div class="metric-card metric-{{ level(count) }}">
-                    <h3>{{ label }}</h3>
-                    <p>{{ count }}</p>
-                </div>
-            </a>
-            {% endfor %}
-        </div>
+{% if server.status != "Online" %}
+<section class="card">
+    <div class="empty">
+        {{ icon("offline" if server.status == "Offline" else "clock", 28) }}
+        <strong>{{ "This node could not be reached" if server.status == "Offline" else "Not collected yet" }}</strong>
+        <span>
+            {% if server.status == "Offline" %}
+                The last collection failed{% if server.last_seen %}; last seen online {{ server.last_seen | ago }}{% endif %}.
+                See <a href="/documentation/troubleshooting">Troubleshooting</a>.
+            {% else %}
+                Results appear after the next collection (every few minutes).
+            {% endif %}
+        </span>
     </div>
+</section>
+{% endif %}
+
+<section class="tiles" aria-label="Update summary">
+    {% for key, label, n, ic, tone in filters %}
+    {{ tile(label, n, ic, tone, href="#packages", selected=(key == category),
+            attrs='data-filter="' ~ key ~ '"') }}
+    {% endfor %}
+</section>
+
+<div class="grid-2">
+    <section class="card" aria-labelledby="info-title">
+        <div class="card-head"><h2 id="info-title">Node details</h2></div>
+        <dl class="details">
+            <dt>Hostname</dt><dd>{{ server.hostname }}</dd>
+            <dt>IP address</dt><dd>{{ server.ip }}</dd>
+            <dt>SSH</dt><dd class="mono">{{ server.ssh_user }}@{{ server.ip }}:{{ server.ssh_port }}</dd>
+            <dt>OS</dt><dd>{{ server.os or "—" }}</dd>
+            <dt>Uptime</dt><dd>{{ server.uptime or "—" }}</dd>
+            <dt>Registered</dt><dd>{{ server.registered_at }}</dd>
+            <dt>Last online</dt><dd>{{ server.last_seen or "Never" }}</dd>
+            <dt>Node ID</dt><dd class="mono">{{ server.node_id }}</dd>
+        </dl>
+    </section>
+
+    <section class="card" aria-labelledby="trend-title">
+        <div class="card-head">
+            <div>
+                <h2 id="trend-title">Pending updates over time</h2>
+                <p>Last {{ history | length }} successful collections</p>
+            </div>
+            <ul class="legend">
+                <li style="--tone: var(--series-1)"><span class="line-key"></span>All updates</li>
+                <li style="--tone: var(--series-2)"><span class="line-key"></span>Security</li>
+            </ul>
+        </div>
+        {% if history | length >= 2 %}
+        <div class="chart" id="trend"></div>
+        <details class="table-view">
+            <summary>View as table</summary>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Collected</th><th class="num">All updates</th><th class="num">Security</th></tr></thead>
+                    <tbody>
+                        {% for point in history | reverse %}
+                        <tr><td>{{ point.last_check }}</td><td class="num">{{ point.updates }}</td><td class="num">{{ point.security_updates }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+        {% else %}
+        <div class="empty">{{ icon("history", 28) }}<span>The chart appears after two successful collections.</span></div>
+        {% endif %}
+    </section>
+</div>
+
+<section class="card flush" id="packages" aria-labelledby="packages-title">
+    <div class="card-head">
+        <div>
+            <h2 id="packages-title">Available updates</h2>
+            <p>Package, repository, new version and architecture</p>
+        </div>
+        {% if packages %}
+        <div class="toolbar">
+            <div class="chips" role="group" aria-label="Filter packages">
+                {% for key, label, n, ic, tone in filters %}
+                <button class="chip" type="button" data-filter="{{ key }}" aria-pressed="{{ 'true' if key == category else 'false' }}">
+                    {{ label }} <span class="n">{{ n }}</span>
+                </button>
+                {% endfor %}
+            </div>
+            {{ search_box(".package-row", "Search packages") }}
+        </div>
+        {% endif %}
+    </div>
+    {% if packages %}
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Package</th><th>Flags</th></tr></thead>
+            <tbody>
+                {% for p in packages %}
+                <tr class="package-row" data-kernel="{{ p.kernel | int }}" data-security="{{ p.security | int }}" data-critical="{{ p.critical | int }}">
+                    <td class="mono wrap">{{ p.line }}</td>
+                    <td>
+                        {% if p.security %}<span class="pill tone-critical">{{ icon("shield", 12) }}Security</span>{% endif %}
+                        {% if p.kernel %}<span class="pill tone-serious">{{ icon("kernel", 12) }}Kernel</span>{% endif %}
+                        {% if p.critical and not p.kernel %}<span class="pill tone-serious">{{ icon("critical", 12) }}Critical</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="no-match">No packages match.</div>
+    </div>
+    {% elif server.status == "Online" %}
+    <div class="empty">{{ icon("check", 28) }}<strong>Fully patched</strong><span>No updates are available for this node.</span></div>
+    {% else %}
+    <div class="empty"><span>No package data yet.</span></div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Category filter shared by the summary tiles and the chips.
+(function () {
+    const rows = document.querySelectorAll(".package-row");
+    const search = document.querySelector('.search input[data-rows=".package-row"]');
+    function apply(key) {
+        document.querySelectorAll(".chip[data-filter]").forEach(function (chip) {
+            chip.setAttribute("aria-pressed", chip.dataset.filter === key);
+        });
+        document.querySelectorAll(".tile[data-filter]").forEach(function (t) {
+            t.classList.toggle("selected", t.dataset.filter === key);
+        });
+        rows.forEach(function (row) {
+            if (key === "all" || row.dataset[key] === "1") delete row.dataset.filteredOut;
+            else row.dataset.filteredOut = "1";
+        });
+        if (search) search.dispatchEvent(new Event("input"));
+        else rows.forEach(function (row) { row.hidden = !!row.dataset.filteredOut; });
+    }
+    document.querySelectorAll("[data-filter]").forEach(function (el) {
+        el.addEventListener("click", function () { apply(el.dataset.filter); });
+    });
+    apply({{ category | tojson }});
+})();
+
+// Line chart of pending updates, with a crosshair tooltip.
+(function () {
+    const box = document.getElementById("trend");
+    if (!box) return;
+    const data = {{ history | tojson }};
+    const series = [
+        { key: "updates", label: "All updates", color: "--series-1" },
+        { key: "security_updates", label: "Security", color: "--series-2" },
+    ];
+    const NS = "http://www.w3.org/2000/svg";
+    const el = (name, attrs, parent) => {
+        const node = document.createElementNS(NS, name);
+        for (const k in attrs) node.setAttribute(k, attrs[k]);
+        if (parent) parent.appendChild(node);
+        return node;
+    };
+    // Whole-number tick step (1, 2, 5, 10, 20, 50...) giving at most 4 intervals.
+    const niceStep = (v) => {
+        for (let p = 1; ; p *= 10) {
+            for (const s of [p, 2 * p, 5 * p]) if (s * 4 >= v) return s;
+        }
+    };
+    const shortTime = (t) => t.slice(5, 16);
+
+    function draw() {
+        box.innerHTML = "";
+        const css = getComputedStyle(document.documentElement);
+        const W = box.clientWidth, H = box.clientHeight;
+        const m = { top: 12, right: 44, bottom: 24, left: 36 };
+        const w = W - m.left - m.right, h = H - m.top - m.bottom;
+        const step = niceStep(Math.max(1, ...data.map((d) => d.updates)));
+        const intervals = Math.ceil(Math.max(1, ...data.map((d) => d.updates)) / step);
+        const max = step * intervals;
+        const x = (i) => m.left + (data.length === 1 ? w / 2 : (i * w) / (data.length - 1));
+        const y = (v) => m.top + h - (v / max) * h;
+
+        const svg = el("svg", { width: W, height: H, role: "img",
+            "aria-label": "Pending updates over time. Latest: " + data[data.length - 1].updates +
+                " updates, " + data[data.length - 1].security_updates + " security." }, box);
+
+        for (let i = 0; i <= intervals; i++) {
+            const v = step * i, yy = y(v);
+            el("line", { class: i ? "gridline" : "baseline", x1: m.left, x2: m.left + w, y1: yy, y2: yy }, svg);
+            el("text", { class: "tick", x: m.left - 8, y: yy + 4, "text-anchor": "end" }, svg).textContent = v;
+        }
+        [[0, "start"], [data.length - 1, "end"]].forEach(([i, anchor]) => {
+            el("text", { class: "tick", x: x(i), y: H - 4, "text-anchor": anchor }, svg).textContent = shortTime(data[i].last_check);
+        });
+
+        series.forEach((s) => {
+            const color = css.getPropertyValue(s.color).trim();
+            const d = data.map((p, i) => (i ? "L" : "M") + x(i) + "," + y(p[s.key])).join("");
+            el("path", { class: "series", d: d, stroke: color }, svg);
+            const last = data[data.length - 1][s.key];
+            el("circle", { class: "dot", cx: x(data.length - 1), cy: y(last), r: 4, fill: color }, svg);
+        });
+
+        // End labels: skip the second if it would overlap the first.
+        const ends = series.map((s) => data[data.length - 1][s.key]);
+        el("text", { class: "end-label", x: m.left + w + 10, y: y(ends[0]) + 4 }, svg).textContent = ends[0];
+        if (Math.abs(y(ends[0]) - y(ends[1])) >= 14) {
+            el("text", { class: "end-label", x: m.left + w + 10, y: y(ends[1]) + 4 }, svg).textContent = ends[1];
+        }
+
+        const cross = el("line", { class: "crosshair", y1: m.top, y2: m.top + h, visibility: "hidden" }, svg);
+        const hoverDots = series.map((s) => el("circle", { class: "dot", r: 4, visibility: "hidden",
+            fill: css.getPropertyValue(s.color).trim() }, svg));
+        const tip = document.createElement("div");
+        tip.className = "tooltip";
+        tip.hidden = true;
+        box.appendChild(tip);
+
+        const hit = el("rect", { x: m.left, y: 0, width: w, height: H, fill: "transparent" }, svg);
+        hit.addEventListener("mousemove", function (event) {
+            const px = event.clientX - svg.getBoundingClientRect().left;
+            const i = Math.max(0, Math.min(data.length - 1, Math.round(((px - m.left) / w) * (data.length - 1))));
+            const p = data[i];
+            cross.setAttribute("x1", x(i));
+            cross.setAttribute("x2", x(i));
+            cross.setAttribute("visibility", "visible");
+            series.forEach((s, j) => {
+                hoverDots[j].setAttribute("cx", x(i));
+                hoverDots[j].setAttribute("cy", y(p[s.key]));
+                hoverDots[j].setAttribute("visibility", "visible");
+            });
+            tip.innerHTML = '<div class="t-time"></div>' + series.map((s) =>
+                '<div class="t-row" style="--tone: var(' + s.color + ')"><span class="line-key"></span>' +
+                s.label + "<b>" + p[s.key] + "</b></div>").join("");
+            tip.querySelector(".t-time").textContent = p.last_check;
+            tip.hidden = false;
+            const left = x(i) + 12 + tip.offsetWidth > W ? x(i) - 12 - tip.offsetWidth : x(i) + 12;
+            tip.style.left = left + "px";
+        });
+        hit.addEventListener("mouseleave", function () {
+            cross.setAttribute("visibility", "hidden");
+            hoverDots.forEach((d) => d.setAttribute("visibility", "hidden"));
+            tip.hidden = true;
+        });
+    }
+
+    draw();
+    window.addEventListener("resize", draw);
+    document.addEventListener("themechange", draw);
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+})();
+</script>
 {% endblock %}
